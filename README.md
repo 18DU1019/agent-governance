@@ -47,12 +47,12 @@ agent-governance/
 | `<YOUR_VAULT_PATH>` | 你的知识库（如 Obsidian vault）根目录 |
 | `<YOUR_SCRIPTS_DIR>` | 工具脚本存放目录（原体系的 `脚本/`） |
 | `<YOUR_WORKBENCH>` | 运行台/工作台目录（预览站点、临时产物根） |
-| `<YOUR_WORKSPACE>` | 工作区根目录 |
-| `<AGENT_HOME_TRAE>` / `<AGENT_HOME_WB>` | 各 Agent 端的配置主目录（挂载端所在） |
+| `<AGENT_HOME_A>` / `<AGENT_HOME_B>` | 快速开始示例中的两个挂载端目录（A/B 为通用名） |
+| `<AGENT_HOME_TRAE>` / `<AGENT_HOME_WB>` | 模板正文中按端名直呼的挂载端配置主目录（与 A/B 同义，保留具体端名作叙事锚点） |
 | `<USER_HOME>` | 用户主目录（`~`） |
 | `<WB_HOME>` | 某 Agent 端的工作数据目录（历史会话归档位） |
 | `<PRIVATE_SYSTEM>` | 原体系关联的私有代码库（示例语境，替换为你自己的项目名） |
-| `<YOUR_CITY>` / `<YOUR_INDUSTRY>` | 模板示例中的地域/行业画像，按实际替换 |
+| `<YOUR_INDUSTRY>` | 模板示例中的行业画像，按实际替换 |
 | `<YOUR_DOMAIN>` / `<YOUR_DOMAIN2>` | 知识库落位表示例中的业务分区名，替换为你的实际分区 |
 
 模板内出现的 `AI-16`、`AI-1x` 等编号是**原体系规范文档编号的示例占位**（其正文未随本仓库发布），落位规则需替换为你自己的标准文档；未替换前，相关段落仅作结构参考，不具权威效力。
