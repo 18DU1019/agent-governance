@@ -1,0 +1,27 @@
+name: Bug report
+description: Something in sync_check.py or a documented discipline does not behave as described
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Actual vs expected behavior
+      description: Include OS and Python version; paste sync_check output verbatim.
+      placeholder: |
+        OS:
+        Python: (>= 3.12 required)
+        Command:
+        Output:
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Governance doc section involved
+      description: Read the governance/ docs first; state which clause section this issue concerns. Issues without this are treated as incomplete.
+      placeholder: e.g. junction-discipline.md section 3, clause 2
+    validations:
+      required: true
