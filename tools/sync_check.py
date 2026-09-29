@@ -65,8 +65,13 @@ def is_link(p: Path) -> bool:
 
 
 def tree_hash(p: Path):
-    """整棵子树哈希，返回 (hexdigest-or-None, 文件数)。排除安装元数据与缓存。"""
-    h = hashlib.sha256()
+    """整棵子树哈希，返回 (原始字节摘要, 行尾归一化摘要, 文件数)。排除安装元数据与缓存。
+
+    双档摘要：跨工具链的 CRLF/LF 差异会制造"字节不同、内容相同"的伪分叉，
+    只有原始档与归一档分开比对，才能区分真分叉与行尾噪声。
+    """
+    raw = hashlib.sha256()
+    norm = hashlib.sha256()
     n = 0
     for f in sorted(p.rglob("*")):
         if not f.is_file():
@@ -75,15 +80,16 @@ def tree_hash(p: Path):
             continue
         if any(part in IGNORE_PARTS for part in f.relative_to(p).parts):
             continue
-        h.update(f.relative_to(p).as_posix().encode("utf-8"))
-        h.update(b"\0")
+        rel = f.relative_to(p).as_posix().encode("utf-8")
         try:
-            h.update(f.read_bytes())
+            data = f.read_bytes()
         except OSError:
-            h.update(b"<unreadable>")
-        h.update(b"\0")
+            data = b"<unreadable>"
+        raw.update(rel); raw.update(b"\0"); raw.update(data); raw.update(b"\0")
+        ndata = data.replace(b"\r\n", b"\n")
+        norm.update(rel); norm.update(b"\0"); norm.update(ndata); norm.update(b"\0")
         n += 1
-    return (h.hexdigest() if n else None), n
+    return (raw.hexdigest() if n else None), (norm.hexdigest() if n else None), n
 
 
 def main(argv=None) -> int:
@@ -94,9 +100,9 @@ def main(argv=None) -> int:
         "B": Path(args.mount_b),
     }
 
-    if not HUB.exists():
+    if not HUB.is_dir():
         print("FAIL")
-        print(f" - 正本目录不存在: {HUB}")
+        print(f" - 正本目录不存在或不是目录: {HUB}")
         return 1
 
     problems = []
@@ -110,7 +116,7 @@ def main(argv=None) -> int:
             problems.append(f"[正本污染] {d.name} 是链接, 正本内禁止")
 
     masters = {d.name: d for d in hub_items if not is_link(d)}
-    master_hash = {n: tree_hash(p)[0] for n, p in masters.items()}
+    mh = {name: tree_hash(p) for name, p in masters.items()}
 
     # 2 + 3. 两端逐项检查
     mounted = {name: [] for name in masters}
@@ -119,9 +125,10 @@ def main(argv=None) -> int:
             problems.append(f"[{end}] 目录不存在: {base}")
             continue
         for x in sorted(base.iterdir()):
-            if not x.is_dir():
-                continue
             if is_link(x):
+                if not x.is_dir():
+                    problems.append(f"[{end}] {x.name}: 悬空链接 (目标不存在)")
+                    continue
                 tgt = Path(os.path.realpath(x))
                 # 严格父子判定：tgt 必须等于正本或在正本目录树内。
                 # 禁止用 startswith 字符串前缀——可被同名旁支目录绕过。
@@ -134,14 +141,20 @@ def main(argv=None) -> int:
                     continue
                 if x.name != mname:
                     problems.append(f"[{end}] {x.name}: 链接名与正本目录名不一致 ({mname})")
-                if tree_hash(x)[0] is None:
+                if tree_hash(x)[2] == 0 and mh[mname][2] > 0:
                     problems.append(f"[{end}] {x.name}: 透过链接读不到任何文件 (静默失败)")
                     continue
                 mounted[mname].append(end)
-            else:
+            elif x.is_dir():
                 if x.name in masters:
-                    hl = tree_hash(x)[0]
-                    verdict = "内容相同 (可安全改链接)" if hl == master_hash[x.name] else "内容分叉 (需裁定)"
+                    r, nm, _ = tree_hash(x)
+                    mr, mn, _ = mh[x.name]
+                    if r == mr:
+                        verdict = "字节一致 (可安全改链接)"
+                    elif nm == mn:
+                        verdict = "内容一致仅行尾差异 (可安全改链接)"
+                    else:
+                        verdict = "内容分叉 (需裁定)"
                     problems.append(
                         f"[{end}] {x.name}: 实体副本遮蔽正本同名项, {verdict}")
 

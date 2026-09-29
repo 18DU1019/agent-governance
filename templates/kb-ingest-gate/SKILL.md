@@ -2,7 +2,7 @@
 name: kb-ingest-gate
 description: "Obsidian 知识库（<YOUR_VAULT_PATH>）统一总入口——基础操作（查/读/写/改 vault，原 obsidian skill）+ 入库闸门（防复制品、按AI-16落位接链）+ md→HTML 展示链路（原 md-html-preview skill，含路径坑与HTTP服务）+ 三标尺复检 + 方法论闭环（二次验证/正本副本/逆向还原）。触发词：入库、闭环、交付文件进KB、归档、整理知识库、梳理整合、查漏补缺、检查闭环、三标尺检验、记到知识库、查一下笔记里有没有、新建一条笔记、展示md文档、预览报告。闭环/整理/归档触发词仅在 Obsidian 知识库语境生效；与知识库无关的文档整理（发老板/PPT/概念解释）勿触发。"
 description_zh: "Obsidian 知识库总入口：基础操作+入库闸门+HTML展示链路+三标尺复检+方法论闭环（v2.0 合并 obsidian 与 md-html-preview）"
-version: 2.1.2
+version: 2.1.5
 visibility: "public"
 ---
 
