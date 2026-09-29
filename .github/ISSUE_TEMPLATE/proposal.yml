@@ -1,0 +1,24 @@
+name: Governance proposal
+description: A new clause, template, or change to existing clauses
+labels: [proposal]
+body:
+  - type: markdown
+    attributes:
+      value: Every clause in this repo originates from a real production incident. Purely paper designs without observed problems will be downgraded to Discussions by default.
+  - type: textarea
+    attributes:
+      label: Problem observed in production
+      description: Evidence beats design. Describe what actually went wrong (or nearly did).
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed clause text
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Which existing doc it extends
+      placeholder: e.g. governance/lifecycle-clauses.md
+    validations:
+      required: true
