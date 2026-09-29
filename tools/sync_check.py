@@ -108,7 +108,12 @@ def main(argv=None) -> int:
     problems = []
     hub_real = Path(os.path.realpath(HUB))
 
-    hub_items = [d for d in sorted(HUB.iterdir()) if d.is_dir()]
+    try:
+        hub_items = [d for d in sorted(HUB.iterdir()) if d.is_dir()]
+    except OSError as e:
+        print("FAIL")
+        print(f" - 正本目录不可读: {HUB} ({e})")
+        return 1
 
     # 1. 正本内不得有链接
     for d in hub_items:
@@ -124,7 +129,12 @@ def main(argv=None) -> int:
         if not base.exists():
             problems.append(f"[{end}] 目录不存在: {base}")
             continue
-        for x in sorted(base.iterdir()):
+        try:
+            entries = sorted(base.iterdir())
+        except OSError as e:
+            problems.append(f"[{end}] 目录不可读: {base} ({e})")
+            continue
+        for x in entries:
             if is_link(x):
                 if not x.is_dir():
                     problems.append(f"[{end}] {x.name}: 悬空链接 (目标不存在)")

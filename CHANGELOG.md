@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.2 — 2026-09-29
+
+- 校验器边界加固：正本/挂载目录不可读（权限等 OSError）从裸 traceback 改为干净 FAIL。
+- CI（`.github/workflows/ci.yml`）：编译检查 + 模板 frontmatter lint + sync_check 正/负自测（Unix symlink 拓扑 PASS 用例 + 悬空链接必 FAIL 用例，ubuntu-latest/Python 3.12）。
+- Issue 模板：bug/proposal 采用 GitHub issue forms（.yml）；proposal 首段固化"条款源自真实事故，纯纸面设计降级 Discussion"准入纪律。
+- `README_en.md` 英文译本上线，顶部声明中英双版本以中文版为正本（正本唯一原则的自我执行）。
+
 ## v0.1.1 — 2026-09-29
 
 - 定位修正（经竞品扫描校准）：README 从"治理工具箱（校验器打头）"改为"**生命周期治理条款包**（条款为本体，校验器随附）"——分发/版本一致性层已有官方工具（gh skill 2026-04 发布版本 pin+provenance；Anthropic 组织同步含 inventory），本仓差异化压在官方无动力做的退役条款与记账口径层。
