@@ -49,6 +49,7 @@ The `<...>` variables in templates and documents mean the following; replace the
 | `<YOUR_VAULT_PATH>` | Root directory of your knowledge base (e.g. an Obsidian vault) |
 | `<YOUR_SCRIPTS_DIR>` | Directory for tool scripts (the original system's `脚本/`) |
 | `<YOUR_WORKBENCH>` | Workbench directory (root for preview sites and temporary artifacts) |
+| `<YOUR_AI_HUB>` | Directory name of the AI-mechanism / verification-report partition in your knowledge base |
 | `<AGENT_HOME_A>` / `<AGENT_HOME_B>` | The two mount-endpoint directories in the Quick Start example (A/B are generic names) |
 | `<AGENT_HOME_TRAE>` / `<AGENT_HOME_WB>` | Mount-endpoint configuration home directories named after specific endpoints in template bodies (synonymous with A/B; concrete endpoint names kept as narrative anchors) |
 | `<USER_HOME>` | User home directory (`~`) |
