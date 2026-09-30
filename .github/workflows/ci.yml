@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile check
+        run: python -m py_compile tools/sync_check.py
+
+      - name: Frontmatter lint (templates)
+        run: |
+          python - <<'EOF'
+          import sys, pathlib
+          bad = []
+          for p in sorted(pathlib.Path("templates").rglob("SKILL.md")):
+              t = p.read_text(encoding="utf-8")
+              if not t.startswith("---"):
+                  bad.append(f"{p}: no frontmatter")
+                  continue
+              fm = t.split("---", 2)[1]
+              for k in ("name:", "description:"):
+                  if k not in fm:
+                      bad.append(f"{p}: missing '{k}' in frontmatter")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("frontmatter OK")
+          EOF
+
+      - name: sync_check self-test (symlink topology)
+        run: |
+          set -e
+          rm -rf /tmp/gov && mkdir -p /tmp/gov/hub/skillA /tmp/gov/ma /tmp/gov/mb
+          echo "x" > /tmp/gov/hub/skillA/SKILL.md
+          ln -s /tmp/gov/hub/skillA /tmp/gov/ma/skillA
+          ln -s /tmp/gov/hub/skillA /tmp/gov/mb/skillA
+          python tools/sync_check.py --source /tmp/gov/hub --mount-a /tmp/gov/ma --mount-b /tmp/gov/mb
+          echo "positive case PASS"
+
+      - name: sync_check negative test (dangling link must FAIL)
+        run: |
+          set -e
+          ln -s /tmp/gov/hub/gone /tmp/gov/mb/gone
+          if python tools/sync_check.py --source /tmp/gov/hub --mount-a /tmp/gov/ma --mount-b /tmp/gov/mb; then
+            echo "dangling link was NOT detected -- regression"; exit 1
+          fi
+          echo "negative case correctly FAIL-detected"
