@@ -49,6 +49,7 @@ agent-governance/
 | `<YOUR_VAULT_PATH>` | 你的知识库（如 Obsidian vault）根目录 |
 | `<YOUR_SCRIPTS_DIR>` | 工具脚本存放目录（原体系的 `脚本/`） |
 | `<YOUR_WORKBENCH>` | 运行台/工作台目录（预览站点、临时产物根） |
+| `<YOUR_AI_HUB>` | 知识库内 AI 机制/检验报告分区的目录名 |
 | `<AGENT_HOME_A>` / `<AGENT_HOME_B>` | 快速开始示例中的两个挂载端目录（A/B 为通用名） |
 | `<AGENT_HOME_TRAE>` / `<AGENT_HOME_WB>` | 模板正文中按端名直呼的挂载端配置主目录（与 A/B 同义，保留具体端名作叙事锚点） |
 | `<USER_HOME>` | 用户主目录（`~`） |
