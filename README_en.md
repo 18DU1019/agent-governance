@@ -71,7 +71,7 @@ Identifiers such as `AI-16` and `AI-1x` appearing in the templates are **example
 ## License
 
 - Code (`tools/`): [MIT](LICENSE)
-- Documentation and templates (`governance/`, `templates/`): CC-BY-4.0
+- Documentation and templates (`governance/`, `templates/`): CC-BY-4.0 (full text in [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0))
 
 ## Status
 

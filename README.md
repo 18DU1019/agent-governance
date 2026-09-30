@@ -71,7 +71,7 @@ agent-governance/
 ## 许可
 
 - 代码（`tools/`）：[MIT](LICENSE)
-- 文档与模板（`governance/`、`templates/`）：CC-BY-4.0
+- 文档与模板（`governance/`、`templates/`）：CC-BY-4.0（全文见 [LICENSE-CC-BY-4.0](LICENSE-CC-BY-4.0)）
 
 ## 状态
 
