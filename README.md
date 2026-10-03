@@ -34,7 +34,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉三档判定）、悬空链接与挂载分布报表。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据与禁忌见 [governance/junction-discipline.md](governance/junction-discipline.md)。
+   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、悬空链接与挂载分布报表。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
 
    **选型边界**：若你的场景是"从外部安装 skill 并跟踪版本"，官方 `gh skill`（版本 pin/provenance）更合适；本校验器针对**自建正本、多端挂载**场景——官方工具不管这种拓扑的一致性。
 

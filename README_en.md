@@ -34,7 +34,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   Environment variables `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B` are also supported (command-line arguments take precedence). The output includes shadowing detection (three-tier verdict: byte-identical / line-ending-only difference / content divergence), dangling links, and a mount distribution report. Requires Python >= 3.12; recognizes both Windows junctions and Unix symlinks. For design rationale and prohibitions, see [governance/junction-discipline.md](governance/junction-discipline.md).
+   Environment variables `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B` are also supported (command-line arguments take precedence). The output includes shadowing detection (four-way verdict: byte-identical / line-ending-only difference / content divergence / SUSPENDED-unverifiable, where unreadable files never masquerade as a positive match), dangling links, and a mount distribution report. Requires Python >= 3.12; recognizes both Windows junctions and Unix symlinks. For design rationale, prohibitions, and the negative-vector coverage list, see [governance/junction-discipline.md](governance/junction-discipline.md).
 
    **Selection boundary**: if your scenario is "installing skills from outside and tracking versions", the official `gh skill` (version pin/provenance) fits better; this checker targets the **self-built canonical source tree, multi-endpoint mount** scenario — official tools do not handle consistency for this topology.
 
