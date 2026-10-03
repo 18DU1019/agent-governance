@@ -65,14 +65,17 @@ def is_link(p: Path) -> bool:
 
 
 def tree_hash(p: Path):
-    """整棵子树哈希，返回 (原始字节摘要, 行尾归一化摘要, 文件数)。排除安装元数据与缓存。
+    """整棵子树哈希，返回 (原始字节摘要, 行尾归一化摘要, 文件数, 不可读文件数)。排除安装元数据与缓存。
 
     双档摘要：跨工具链的 CRLF/LF 差异会制造"字节不同、内容相同"的伪分叉，
     只有原始档与归一档分开比对，才能区分真分叉与行尾噪声。
+    不可读计数（v0.1.5 借件 SUSPENDED 语义）：占位符哈希不再参与"一致"判定——
+    任一侧存在不可读文件时，内容判定输出 SUSPENDED（无法检查），不冒充字节一致/内容一致。
     """
     raw = hashlib.sha256()
     norm = hashlib.sha256()
     n = 0
+    bad = 0
     for f in sorted(p.rglob("*")):
         if not f.is_file():
             continue
@@ -85,11 +88,17 @@ def tree_hash(p: Path):
             data = f.read_bytes()
         except OSError:
             data = b"<unreadable>"
-        raw.update(rel); raw.update(b"\0"); raw.update(data); raw.update(b"\0")
+            bad += 1
         ndata = data.replace(b"\r\n", b"\n")
-        norm.update(rel); norm.update(b"\0"); norm.update(ndata); norm.update(b"\0")
+        # 长度前缀消歧（v0.1.5 C3）：纯 \0 分隔在 data 含 \0 时可跨文件边界构造碰撞，
+        # 改 len 前缀使 rel/data 边界唯一可解析。哈希值与旧版不兼容属正常——
+        # 校验器每次全量自产比对，无跨版本持久化摘要。
+        raw.update(len(rel).to_bytes(8, "big")); raw.update(rel)
+        raw.update(len(data).to_bytes(8, "big")); raw.update(data)
+        norm.update(len(rel).to_bytes(8, "big")); norm.update(rel)
+        norm.update(len(ndata).to_bytes(8, "big")); norm.update(ndata)
         n += 1
-    return (raw.hexdigest() if n else None), (norm.hexdigest() if n else None), n
+    return (raw.hexdigest() if n else None), (norm.hexdigest() if n else None), n, bad
 
 
 def main(argv=None) -> int:
@@ -157,9 +166,12 @@ def main(argv=None) -> int:
                 mounted[mname].append(end)
             elif x.is_dir():
                 if x.name in masters:
-                    r, nm, _ = tree_hash(x)
-                    mr, mn, _ = mh[x.name]
-                    if r == mr:
+                    r, nm, _, bad_x = tree_hash(x)
+                    mr, mn, _, bad_m = mh[x.name]
+                    if bad_x > 0 or bad_m > 0:
+                        verdict = (f"SUSPENDED 无法检查 (不可读文件: 副本 {bad_x} / 正本 {bad_m}，"
+                                   "占位符不参与一致判定，需修复读取权限后复检)")
+                    elif r == mr:
                         verdict = "字节一致 (可安全改链接)"
                     elif nm == mn:
                         verdict = "内容一致仅行尾差异 (可安全改链接)"
