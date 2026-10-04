@@ -12,7 +12,8 @@ This repository addresses one concrete incident pattern: once the same skill set
 agent-governance/
 ├── README.md / LICENSE / CHANGELOG.md
 ├── docs/
-│   └── paradigm.md            # 治理范式图谱：五层范式 + 共享公理 + 适用边界（建议先读）
+│   ├── paradigm.md            # 治理范式图谱：五层范式 + 共享公理 + 适用边界（建议先读）
+│   └── proposals/             # Proposal drafts (pending/adjudicated, e.g. v0.1.5 borrowed clauses)
 ├── tools/
 │   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
 │   └── sync_check_selftest.py # 6-case regression selftest for the checker (wired into CI)
