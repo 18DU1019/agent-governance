@@ -4,7 +4,7 @@
 
 A **lifecycle governance clause pack** for skill assets in multi-agent-endpoint environments: the demotion clock, the registration safeguards, and the bookkeeping discipline form the core, accompanied by a cross-endpoint canonical-source-tree mount consistency checker and ingest / re-review templates.
 
-This repository addresses one concrete incident pattern: once the same skill set is loaded by multiple agent endpoints, copies drift, retirements lack grounds, and the bookkeeping behind those grounds becomes untrustworthy. The three artifact layers each target one class of incident: the clauses (lifecycle-clauses) govern when an asset retires and whether the evidence for retirement is credible, the checker (sync_check) guards mount-topology consistency, and the templates close the session-cleanup loop. Every clause traces back to a real production incident (see CHANGELOG) rather than paper design — which is also where this pack differs from orchestration frameworks and distribution tools: those layers solve "how to organize and sync", this one solves "how to retire, and whether the case for retirement holds up".
+This repository addresses one concrete incident pattern: once the same skill set is loaded by multiple agent endpoints, copies drift, retirements lack grounds, and the bookkeeping behind those grounds becomes untrustworthy. The three artifact layers each target one class of incident: the clauses (lifecycle-clauses) govern when an asset retires and whether the evidence for retirement is credible, the checker (sync_check) guards mount-topology consistency, and the templates close the session-cleanup loop. The clauses all originate from repeated real-world production stumbles (the CHANGELOG records this repository's own build and errata history; the clause-to-incident mapping table lives in the original system's internal ledger and is not published with this repository, so no per-clause traceability is asserted here) — which is also where this pack differs from orchestration frameworks and distribution tools: those layers solve "how to organize and sync", this one solves "how to retire, and whether the case for retirement holds up".
 
 ## Directory Structure
 
@@ -12,18 +12,18 @@ This repository addresses one concrete incident pattern: once the same skill set
 agent-governance/
 ├── README.md / LICENSE / CHANGELOG.md
 ├── docs/
-│   ├── paradigm.md            # 治理范式图谱：五层范式 + 共享公理 + 适用边界（建议先读）
+│   ├── paradigm.md            # Governance paradigm map: five layers + shared axioms + applicability boundary (read first)
 │   └── proposals/             # Proposal drafts (pending/adjudicated, e.g. v0.1.5 borrowed clauses)
 ├── tools/
-│   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
-│   └── sync_check_selftest.py # 6-case regression selftest for the checker (wired into CI)
+│   ├── sync_check.py          # Cross-endpoint mount consistency checker (read-only, pure stdlib, Python>=3.12)
+│   └── sync_check_selftest.py # 12-case regression selftest for the checker (wired into CI)
 ├── governance/
-│   ├── junction-discipline.md # 正本+链接挂载模型与四条纪律、校验器设计依据
-│   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款
-│   └── closure-workflow.md    # 会话收尾四步闭环（汇总→蒸馏→入库判定→轻复检）
+│   ├── junction-discipline.md # Canonical-source + link-mount model, four disciplines, checker design rationale
+│   ├── lifecycle-clauses.md   # Demotion clock / demand-authenticity gauges / registration safeguards / council governance / learning conversion, etc.
+│   └── closure-workflow.md    # Four-step session-closure loop (summarize → distill → ingest decision → light re-review)
 └── templates/
-    ├── kb-ingest-gate/        # 知识库入库闸门（防复制品、按落位规则接链、复检闭环）
-    └── three-ruler-review/    # 三标尺复检+联网查漏+方案迭代模板
+    ├── kb-ingest-gate/        # Knowledge-base ingest gate (anti-duplication, placement-rule linking, re-review closure)
+    └── three-ruler-review/    # Three-ruler re-review + gap-filling + plan iteration template
 ```
 
 ## Quick Start
@@ -36,7 +36,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   Environment variables `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B` are also supported (command-line arguments take precedence). The output includes shadowing detection (four-way verdict: byte-identical / line-ending-only difference / content divergence / SUSPENDED-unverifiable, where unreadable files never masquerade as a positive match), dangling links, and a mount distribution report. Requires Python >= 3.12; recognizes both Windows junctions and Unix symlinks. For design rationale, prohibitions, and the negative-vector coverage list, see [governance/junction-discipline.md](governance/junction-discipline.md).
+   Environment variables `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B` are also supported (command-line arguments take precedence). The output includes shadowing detection (four-way verdict: byte-identical / line-ending-only difference / content divergence / SUSPENDED-unverifiable, where unreadable files never masquerade as a positive match), link-side read-integrity checks (unreadable files behind a link, or links with no verifiable files, are likewise reported), dangling links, same-endpoint duplicate-mount detection, and a mount distribution report; misconfigured arguments (both endpoints on the same path / an endpoint equal to the source) exit with code 2. Requires Python >= 3.12; recognizes both Windows junctions and Unix symlinks. For design rationale, prohibitions, and the negative-vector coverage list, see [governance/junction-discipline.md](governance/junction-discipline.md).
 
    **Selection boundary**: if your scenario is "installing skills from outside and tracking versions", the official `gh skill` (version pin/provenance) fits better; this checker targets the **self-built canonical source tree, multi-endpoint mount** scenario — official tools do not handle consistency for this topology.
 
@@ -77,4 +77,4 @@ Identifiers such as `AI-16` and `AI-1x` appearing in the templates are **example
 
 ## Status
 
-v0.1 — the first edition distilled from production, desensitized via placeholderization (after three rounds of independent review); issues and PRs are welcome, but read the three documents under governance/ before proposing changes.
+v0.1.5.1 — distilled from production, desensitized via placeholderization (after three rounds of independent review); v0.1.5 absorbed externally benchmarked clauses (SUSPENDED semantics / negative-consistency vectors / pre-execution re-check), v0.1.5.1 fixed three checker defects found by adversarial review: silent missed detection in the link branch (V1), nested links inside the canonical tree missed (V2), missing argument-precondition validation (V4). Issues and PRs are welcome, but read the three documents under governance/ before proposing changes.

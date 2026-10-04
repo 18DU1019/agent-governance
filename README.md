@@ -4,7 +4,7 @@
 
 多 Agent 端环境下 skill 资产的**生命周期治理条款包**：以降档时钟/登记三防/记账口径为本体，附跨端正本挂载一致性校验器与入库/复检模板。
 
-本仓库解决一个具体事故形态：同一套 skill 被多端加载后，副本漂移、退役无据、记账失真。三层产物各对一类事故：条款（lifecycle-clauses）管资产何时退役与退役依据是否可信，校验器（sync_check）管挂载拓扑一致性，模板管收尾闭环。每条条款可回溯到一次真实生产事故（见 CHANGELOG），非纸面设计——这也是它区别于编排框架与分发工具的地方：那两层解决"怎么组织与同步"，本仓解决"怎么退场、退场依据是否可信"。
+本仓库解决一个具体事故形态：同一套 skill 被多端加载后，副本漂移、退役无据、记账失真。三层产物各对一类事故：条款（lifecycle-clauses）管资产何时退役与退役依据是否可信，校验器（sync_check）管挂载拓扑一致性，模板管收尾闭环。条款均源自真实生产环境的反复踩坑（CHANGELOG 记录本仓自身的构建与勘误史；条款↔具体事故的逐条映射表属原体系内部台账，未随本仓库发布，故此处不断言可逐条回溯）——这也是它区别于编排框架与分发工具的地方：那两层解决"怎么组织与同步"，本仓解决"怎么退场、退场依据是否可信"。
 
 ## 目录结构
 
@@ -16,7 +16,7 @@ agent-governance/
 │   └── proposals/             # 提案稿（待裁定/已裁定留档，如 v0.1.5 借件条款化）
 ├── tools/
 │   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
-│   └── sync_check_selftest.py # 校验器六用例回归自测（CI 已接线，本地随时可跑）
+│   └── sync_check_selftest.py # 校验器十二用例回归自测（CI 已接线，本地随时可跑）
 ├── governance/
 │   ├── junction-discipline.md # 正本+链接挂载模型与四条纪律、校验器设计依据
 │   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款
@@ -36,7 +36,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、悬空链接与挂载分布报表。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
+   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、链接侧读取完整性判定（透过链接不可读/无可校验文件同样报出）、悬空链接、同端多挂检出与挂载分布报表；参数配错（双端同路径/挂载端=正本）退出码 2。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
 
    **选型边界**：若你的场景是"从外部安装 skill 并跟踪版本"，官方 `gh skill`（版本 pin/provenance）更合适；本校验器针对**自建正本、多端挂载**场景——官方工具不管这种拓扑的一致性。
 
@@ -77,4 +77,4 @@ agent-governance/
 
 ## 状态
 
-v0.1 —— 从生产环境提炼的首版，占位符化脱敏（经三轮独立审查）；issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。
+v0.1.5.1 —— 从生产环境提炼，占位符化脱敏（经三轮独立审查）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。
