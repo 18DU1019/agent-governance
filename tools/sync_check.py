@@ -179,7 +179,9 @@ def main(argv=None) -> int:
                     problems.append(f"[{end}] {x.name}: 链接状态不可判定 ({e})")
                     continue
                 if not is_dir_target:
-                    problems.append(f"[{end}] {x.name}: 悬空链接 (目标不存在)")
+                    problems.append(
+                        f"[{end}] {x.name}: 链接目标不可用（不存在或不是目录，"
+                        "挂载项须为目录链接）")
                     continue
                 try:
                     tgt = Path(os.path.realpath(x))
@@ -224,11 +226,14 @@ def main(argv=None) -> int:
                     problems.append(f"[{end}] {x.name}: 条目状态不可判定 ({e})")
                     continue
                 if is_plain_dir and x.name in masters:
-                    r, nm, _, bad_x = tree_hash(x)
-                    mr, mn, _, bad_m = mh[x.name]
+                    r, nm, n_x, bad_x = tree_hash(x)
+                    mr, mn, n_m, bad_m = mh[x.name]
                     if bad_x > 0 or bad_m > 0:
                         verdict = (f"SUSPENDED 无法检查 (不可读文件: 副本 {bad_x} / 正本 {bad_m}，"
                                    "占位符不参与一致判定，需修复读取权限后复检)")
+                    elif n_x == 0 or n_m == 0:
+                        verdict = (f"无可校验文件 (副本 {n_x} / 正本 {n_m}，"
+                                   "空项或内容全被忽略项，一致性结论无依据)")
                     elif r == mr:
                         verdict = "字节一致 (可安全改链接)"
                     elif nm == mn:

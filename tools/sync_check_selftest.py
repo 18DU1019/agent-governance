@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""sync_check 回归自测（十二用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
+"""sync_check 回归自测（十六用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
 
-覆盖 v0.1.5 / v0.1.5.1 修复项与既有判定的回归防护：
+覆盖 v0.1.5 / v0.1.5.1 / v0.1.5.2 修复项与既有判定的回归防护：
   case1   链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
   case2   实体副本遮蔽必 FAIL 并报"字节一致"判定
   case2b  tree_hash 不可读计数（monkeypatch 模拟权限故障，不碰真实 ACL）
@@ -14,8 +14,12 @@
   case8   挂载端=正本必退出码 2（V4 回归）
   case9   链接无可校验文件必 FAIL（V3 回归：空正本项不冒充一致）
   case10  同端重复挂载必 FAIL（多挂检出，分布报表不虚增）
+  case11  链接指向正本树外（旁支同名目录）必 FAIL（负例清单补漏·realpath 父子判定）
+  case12  链接指向的正本项已消失（指向 hub 内非顶层目录）必 FAIL（负例清单补漏·masters 集判定）
+  case13  链接名与正本目录名不一致必 FAIL（负例清单补漏·名比对独立断言）
+  case14  挂载端目录不存在必 FAIL（负例清单补漏·exists 判定）
 
-用法: python tools/sync_check_selftest.py   （退出码 0=十二用例全过）
+用法: python tools/sync_check_selftest.py   （退出码 0=十六用例全过）
 CI 已接线（.github/workflows/ci.yml）；本地随时可跑，只写系统临时目录。
 """
 import importlib.util
@@ -170,7 +174,7 @@ with Fixture() as f:
     make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
     make_link(f.root / "mb" / "gone", f.root / "hub" / "gone")
     r = f.run_check()
-    check("case4 悬空链接必 FAIL", r.returncode == 1 and "悬空链接" in r.stdout, r.stdout)
+    check("case4 悬空链接必 FAIL", r.returncode == 1 and "链接目标不可用" in r.stdout, r.stdout)
 
 # case5 V1 回归：透过链接存在不可读文件 -> SUSPENDED（不冒充一致，退出码 1）。
 # monkeypatch read_bytes 模拟权限故障，不碰真实 ACL。
@@ -251,6 +255,47 @@ with Fixture() as f:
     r = f.run_check()
     check("case10 同端重复挂载必 FAIL（多挂检出）",
           r.returncode == 1 and "重复挂载" in r.stdout, r.stdout)
+
+# case11 负例清单补漏：链接指向正本树外的同名旁支目录 -> FAIL（realpath 父子判定）
+with Fixture() as f:
+    side = f.root / "outside" / "skillA"
+    side.mkdir(parents=True)
+    (side / "SKILL.md").write_text("y\n", encoding="utf-8")
+    make_link(f.root / "ma" / "skillA", side)
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case11 链接指向非正本（树外旁支）必 FAIL",
+          r.returncode == 1 and "链接指向非正本" in r.stdout, r.stdout)
+
+# case12 负例清单补漏：链接指向 hub 内非顶层目录（= 正本项集里没有它）-> FAIL
+with Fixture() as f:
+    sub = f.root / "hub" / "sub" / "skillC"
+    sub.mkdir(parents=True)
+    (sub / "SKILL.md").write_text("z\n", encoding="utf-8")
+    make_link(f.root / "ma" / "skillC", sub)
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case12 指向的正本项不存在必 FAIL（含 hub 内非顶层目标）",
+          r.returncode == 1 and "指向的正本项不存在" in r.stdout, r.stdout)
+
+# case13 负例清单补漏：链接名与正本目录名不一致 -> FAIL（独立断言，不再靠 case10 顺带）
+with Fixture() as f:
+    make_link(f.root / "ma" / "skillB_link", f.root / "hub" / "skillA")
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case13 链接名与正本目录名不一致必 FAIL",
+          r.returncode == 1 and "链接名与正本目录名不一致" in r.stdout, r.stdout)
+
+# case14 负例清单补漏：挂载端目录不存在 -> FAIL（exists 判定，报"目录不存在"）
+with Fixture() as f:
+    r = subprocess.run(
+        [sys.executable, str(TOOL),
+         "--source", str(f.root / "hub"),
+         "--mount-a", str(f.root / "ma"),
+         "--mount-b", str(f.root / "mb" / "nope")],
+        capture_output=True, text=True)
+    check("case14 挂载端目录不存在必 FAIL",
+          r.returncode == 1 and "目录不存在" in r.stdout, r.stdout)
 
 fails = 0
 for name, ok, detail in results:
