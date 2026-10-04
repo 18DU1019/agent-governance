@@ -112,6 +112,14 @@ def main(argv=None) -> int:
         "B": Path(args.mount_b),
     }
 
+    # 参数前提：空字符串路径（env 设为空串的常见配错）不猜——Path("") 会静默变 cwd。
+    for flag, val in (("--source", args.source), ("--mount-a", args.mount_a),
+                      ("--mount-b", args.mount_b)):
+        if val == "":
+            print("ERROR: 参数前提不满足（运行环境不满足）")
+            print(f" - {flag} 为空字符串（环境变量被设为空？请 unset 或给显式路径）")
+            return 2
+
     # 参数前提校验（v0.1.5.1）：同路径双端 / 挂载端=正本 均属配错，
     # 不校验会让用户拿到假绿或误导性"遮蔽"报告。resolve 后比较，不要求路径存在。
     try:
@@ -147,12 +155,19 @@ def main(argv=None) -> int:
     #    用 os.walk(followlinks=False) 而非 Path.rglob——rglob 在部分 Python 版本
     #    会跟随链接进入目录树，触发本条纪律要防的循环扫描。
     try:
-        for dirpath, dirnames, _ in os.walk(HUB):
+        for dirpath, dirnames, filenames in os.walk(HUB):
             for name in list(dirnames):
                 d = Path(dirpath) / name
                 if is_link(d):
                     problems.append(f"[正本污染] {d.relative_to(HUB).as_posix()} 是链接, 正本内禁止")
                     dirnames.remove(name)  # 不再深入链接子树
+            # 文件级链接同样禁止（纪律1"任何链接"含文件级）：tree_hash 的 rglob
+            # 会透过文件级链接读树外内容计入正本哈希，"正本自包含"假设随之破裂。
+            for name in filenames:
+                fp = Path(dirpath) / name
+                if is_link(fp):
+                    problems.append(
+                        f"[正本污染] {fp.relative_to(HUB).as_posix()} 是文件级链接, 正本内禁止")
     except OSError as e:
         problems.append(f"[正本污染] 扫描中断: {e}")
 
@@ -225,7 +240,16 @@ def main(argv=None) -> int:
                 except OSError as e:
                     problems.append(f"[{end}] {x.name}: 条目状态不可判定 ({e})")
                     continue
-                if is_plain_dir and x.name in masters:
+                if is_plain_dir and x.name not in masters:
+                    # 孤立实体目录（第八轮 N8-1）：名不在正本、又是实体目录——
+                    # 典型形态为正本退役后挂载端的实体复制残留，loader 照样加载僵尸 skill。
+                    # 白名单原则：正本=封闭世界，skills 根下未登记实体目录即异常。
+                    # 逃生通道：以 _ / . 开头的目录豁免（约定为非资产辅助目录）。
+                    if not (x.name.startswith("_") or x.name.startswith(".")):
+                        problems.append(
+                            f"[{end}] {x.name}: 孤立实体目录（不在正本，疑似退役残留或未登记资产；"
+                            "非资产辅助目录请以 _ 或 . 前缀命名豁免）")
+                elif is_plain_dir and x.name in masters:
                     r, nm, n_x, bad_x = tree_hash(x)
                     mr, mn, n_m, bad_m = mh[x.name]
                     if bad_x > 0 or bad_m > 0:

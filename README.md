@@ -16,7 +16,7 @@ agent-governance/
 │   └── proposals/             # 提案稿（待裁定/已裁定留档，如 v0.1.5 借件条款化）
 ├── tools/
 │   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
-│   └── sync_check_selftest.py # 校验器十六用例回归自测（CI 已接线，本地随时可跑）
+│   └── sync_check_selftest.py # 校验器二十用例回归自测（CI 已接线，本地随时可跑）
 ├── governance/
 │   ├── junction-discipline.md # 正本+链接挂载模型与四条纪律、校验器设计依据
 │   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款
@@ -36,7 +36,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、链接侧读取完整性判定（透过链接不可读/无可校验文件同样报出）、悬空链接、同端多挂检出与挂载分布报表；参数配错（双端同路径/挂载端=正本）退出码 2。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
+   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、链接侧读取完整性判定（透过链接不可读/无可校验文件同样报出）、悬空链接、同端多挂检出、挂载端孤立实体目录检出（退役残留形态；`_`/`.` 前缀目录豁免）、正本树内文件级链接检出与挂载分布报表；参数配错（双端同路径/挂载端=正本/空字符串路径）退出码 2。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
 
    **选型边界**：若你的场景是"从外部安装 skill 并跟踪版本"，官方 `gh skill`（版本 pin/provenance）更合适；本校验器针对**自建正本、多端挂载**场景——官方工具不管这种拓扑的一致性。
 
@@ -78,4 +78,4 @@ agent-governance/
 
 ## 状态
 
-v0.1.5.2 —— 从生产环境提炼，占位符化脱敏（经六轮独立审查，含负例实战探针与公开面取证）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。
+v0.1.5.2 —— 从生产环境提炼，占位符化脱敏（经七轮独立审查，含负例实战探针与公开面取证）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏，并修复第八轮探针新发现的三项：挂载端孤立实体目录假绿（N8-1，退役残留形态）、正本内文件级链接漏检（N8-2，纪律1 文件级承载）、空字符串路径参数静默变 cwd（N8-3，退出码 2）。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。

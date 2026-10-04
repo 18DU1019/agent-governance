@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""sync_check 回归自测（十六用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
+"""sync_check 回归自测（二十用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
 
 覆盖 v0.1.5 / v0.1.5.1 / v0.1.5.2 修复项与既有判定的回归防护：
   case1   链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
@@ -18,8 +18,12 @@
   case12  链接指向的正本项已消失（指向 hub 内非顶层目录）必 FAIL（负例清单补漏·masters 集判定）
   case13  链接名与正本目录名不一致必 FAIL（负例清单补漏·名比对独立断言）
   case14  挂载端目录不存在必 FAIL（负例清单补漏·exists 判定）
+  case15  挂载端孤立实体目录必 FAIL（N8-1 回归：退役残留形态，白名单原则）
+  case15b _前缀辅助目录豁免不误报（孤立目录判定的逃生通道）
+  case16  正本内文件级链接必 FAIL（N8-2 回归：纪律1"任何链接"含文件级）
+  case17  空字符串路径参数必退出码 2（N8-3 回归：env 空串不静默变 cwd）
 
-用法: python tools/sync_check_selftest.py   （退出码 0=十六用例全过）
+用法: python tools/sync_check_selftest.py   （退出码 0=二十用例全过）
 CI 已接线（.github/workflows/ci.yml）；本地随时可跑，只写系统临时目录。
 """
 import importlib.util
@@ -296,6 +300,57 @@ with Fixture() as f:
         capture_output=True, text=True)
     check("case14 挂载端目录不存在必 FAIL",
           r.returncode == 1 and "目录不存在" in r.stdout, r.stdout)
+
+# case15 第八轮 N8-1 回归：挂载端孤立实体目录（名不在正本）-> FAIL 报"孤立实体目录"
+with Fixture() as f:
+    (f.root / "ma" / "oldskill").mkdir()
+    (f.root / "ma" / "oldskill" / "SKILL.md").write_text("ghost\n", encoding="utf-8")
+    make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case15 挂载端孤立实体目录必 FAIL（N8-1 退役残留回归）",
+          r.returncode == 1 and "孤立实体目录" in r.stdout, r.stdout)
+
+# case15b 逃生通道：_ 前缀辅助目录豁免，不得误报
+with Fixture() as f:
+    (f.root / "ma" / "_archive").mkdir()
+    (f.root / "ma" / "_archive" / "note.md").write_text("n\n", encoding="utf-8")
+    make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case15b _前缀辅助目录豁免不误报（逃生通道）",
+          r.returncode == 0 and "孤立实体目录" not in r.stdout, r.stdout)
+
+# case16 第八轮 N8-2 回归：正本内文件级链接 -> FAIL（纪律1"任何链接"含文件级）。
+# Windows 文件级 symlink 需权限：创建失败则跳过（junction 不支持文件级，用 symlink）。
+with Fixture() as f:
+    ext_file = f.root / "shared.md"
+    ext_file.write_text("secret-external\n", encoding="utf-8")
+    link_fp = f.root / "hub" / "skillA" / "ref.md"
+    try:
+        link_fp.symlink_to(ext_file)
+        made = True
+    except OSError:
+        made = False
+    if made:
+        make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
+        make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+        r = f.run_check()
+        check("case16 正本内文件级链接必 FAIL（N8-2 纪律1文件级承载）",
+              r.returncode == 1 and "文件级链接" in r.stdout, r.stdout)
+    else:
+        check("case16 SKIP（本机无文件级 symlink 权限，CI Linux 覆盖）", True, "skip")
+
+# case17 第八轮 N8-3 回归：路径参数为空字符串 -> 退出码 2（不静默变 cwd 拿假绿）
+with Fixture() as f:
+    r = subprocess.run(
+        [sys.executable, str(TOOL),
+         "--source", str(f.root / "hub"),
+         "--mount-a", "",
+         "--mount-b", str(f.root / "mb")],
+        capture_output=True, text=True)
+    check("case17 空字符串路径必退出 2（N8-3 参数前提）",
+          r.returncode == 2 and "空字符串" in (r.stdout + r.stderr), r.stdout + r.stderr)
 
 fails = 0
 for name, ok, detail in results:
