@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
-"""sync_check 回归自测（六用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
+"""sync_check 回归自测（十二用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
 
-覆盖 v0.1.5 修复项与既有判定的回归防护：
-  case1  链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
-  case2  实体副本遮蔽必 FAIL 并报"字节一致"判定
-  case2b tree_hash 不可读计数（monkeypatch 模拟权限故障，不碰真实 ACL）
-  case2c 主流程 SUSPENDED 分支（不可读不冒充一致，退出码仍 FAIL）
-  case3  长度前缀消歧（交换内容/跨边界构造均不得同哈希）
-  case4  悬空链接必 FAIL（CI 负例语义的本地等效）
+覆盖 v0.1.5 / v0.1.5.1 修复项与既有判定的回归防护：
+  case1   链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
+  case2   实体副本遮蔽必 FAIL 并报"字节一致"判定
+  case2b  tree_hash 不可读计数（monkeypatch 模拟权限故障，不碰真实 ACL）
+  case2c  主流程 SUSPENDED 分支（不可读不冒充一致，退出码仍 FAIL）
+  case3   长度前缀消歧（交换内容/跨边界构造均不得同哈希）
+  case4   悬空链接必 FAIL（CI 负例语义的本地等效）
+  case5   链接侧不可读必 SUSPENDED（V1 回归：SUSPENDED 不再只活在遮蔽分支）
+  case6   正本项内嵌套链接必 FAIL（V2 回归：纪律1 递归承载）
+  case7   同路径双端必退出码 2（V4 回归：参数前提校验）
+  case8   挂载端=正本必退出码 2（V4 回归）
+  case9   链接无可校验文件必 FAIL（V3 回归：空正本项不冒充一致）
+  case10  同端重复挂载必 FAIL（多挂检出，分布报表不虚增）
 
-用法: python tools/sync_check_selftest.py   （退出码 0=六用例全过）
+用法: python tools/sync_check_selftest.py   （退出码 0=十二用例全过）
 CI 已接线（.github/workflows/ci.yml）；本地随时可跑，只写系统临时目录。
 """
 import importlib.util
@@ -165,6 +171,86 @@ with Fixture() as f:
     make_link(f.root / "mb" / "gone", f.root / "hub" / "gone")
     r = f.run_check()
     check("case4 悬空链接必 FAIL", r.returncode == 1 and "悬空链接" in r.stdout, r.stdout)
+
+# case5 V1 回归：透过链接存在不可读文件 -> SUSPENDED（不冒充一致，退出码 1）。
+# monkeypatch read_bytes 模拟权限故障，不碰真实 ACL。
+with Fixture() as f:
+    sc = load_sc()
+    make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    orig = Path.read_bytes
+
+    def fake(self):
+        if self.name == "SKILL.md":
+            raise OSError("deny")
+        return orig(self)
+
+    Path.read_bytes = fake
+    try:
+        import io
+        buf = io.StringIO()
+        real_out = sys.stdout
+        sys.stdout = buf
+        try:
+            code = sc.main(["--source", str(f.root / "hub"),
+                            "--mount-a", str(f.root / "ma"),
+                            "--mount-b", str(f.root / "mb")])
+        finally:
+            sys.stdout = real_out
+    finally:
+        Path.read_bytes = orig
+    check("case5 链接侧不可读必 SUSPENDED（V1 回归）",
+          code == 1 and "SUSPENDED" in buf.getvalue(), buf.getvalue())
+
+# case6 V2 回归：正本项内部嵌套链接必 FAIL（纪律1"任何链接"递归承载）
+with Fixture() as f:
+    (f.root / "hub" / "inner_target").mkdir()
+    make_link(f.root / "hub" / "skillA" / "nested_link", f.root / "hub" / "inner_target")
+    r = f.run_check()
+    check("case6 正本内嵌套链接必 FAIL（V2 回归）",
+          r.returncode == 1 and "正本污染" in r.stdout and "nested_link" in r.stdout, r.stdout)
+
+# case7 V4 回归：--mount-a 与 --mount-b 同路径 -> 退出码 2（参数前提不满足）
+with Fixture() as f:
+    r = subprocess.run(
+        [sys.executable, str(TOOL),
+         "--source", str(f.root / "hub"),
+         "--mount-a", str(f.root / "ma"),
+         "--mount-b", str(f.root / "ma")],
+        capture_output=True, text=True)
+    check("case7 同路径双端必退出 2（V4 回归）",
+          r.returncode == 2 and "参数前提" in (r.stdout + r.stderr), r.stdout + r.stderr)
+
+# case8 V4 回归：--mount-a 传正本自身 -> 退出码 2
+with Fixture() as f:
+    r = subprocess.run(
+        [sys.executable, str(TOOL),
+         "--source", str(f.root / "hub"),
+         "--mount-a", str(f.root / "hub"),
+         "--mount-b", str(f.root / "mb")],
+        capture_output=True, text=True)
+    check("case8 挂载端=正本必退出 2（V4 回归）",
+          r.returncode == 2 and "参数前提" in (r.stdout + r.stderr), r.stdout + r.stderr)
+
+# case9 V3 回归：透过链接无可校验文件（正本项为空）-> FAIL 不冒充一致
+with Fixture() as f:
+    (f.root / "hub" / "skillEmpty").mkdir()
+    make_link(f.root / "ma" / "skillEmpty", f.root / "hub" / "skillEmpty")
+    make_link(f.root / "mb" / "skillEmpty", f.root / "hub" / "skillEmpty")
+    r = f.run_check()
+    check("case9 链接无可校验文件必 FAIL（V3 回归）",
+          r.returncode == 1 and "无可校验文件" in r.stdout, r.stdout)
+
+# case10 同端重复挂载同一正本 -> FAIL（多挂检出）
+with Fixture() as f:
+    make_link(f.root / "ma" / "skillA", f.root / "hub" / "skillA")
+    (f.root / "hub" / "skillA2").mkdir()
+    make_link(f.root / "mb" / "skillA2", f.root / "hub" / "skillA2")
+    # 同端 ma 再建一个链接指向 skillA（目录名不同但目标同名——按目标名 mname 归并）
+    make_link(f.root / "ma" / "skillA_dup", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case10 同端重复挂载必 FAIL（多挂检出）",
+          r.returncode == 1 and "重复挂载" in r.stdout, r.stdout)
 
 fails = 0
 for name, ok, detail in results:

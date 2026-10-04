@@ -15,14 +15,17 @@
   4. 挂载分布报表（信息项，不判 FAIL）。
 
 挂载形态同时识别 Windows junction 与 Unix symlink。
-注意：一致性判定不透过链接比哈希——链接读到的就是正本，同义反复无检测力；
-整树哈希只用于遮蔽项（实体副本）的内容判定。
+注意：链接侧不比对内容哈希摘要——链接读到的就是正本，同义反复无检测力；
+链接侧只做读取完整性判定（不可读计数 / 可校验文件数），内容比对仅用于遮蔽项（实体副本）。
 
 检查项:
-  1. 正本目录内不得出现链接（纪律1：防循环扫描）
+  1. 正本目录树内（含子目录）不得出现任何链接（纪律1：防循环扫描；rglob 递归判定）
   2. 两端链接：目标须落在正本目录内（严格父子路径判定，防旁支前缀绕过），
-     且链接名与正本目录名一致
+     且链接名与正本目录名一致；透过链接存在不可读文件时判 SUSPENDED，
+     链接侧无可校验文件时判 FAIL（不冒充一致结论）
   3. 两端实体目录：与正本同名者判 FAIL（遮蔽），附内容相同/分叉判定
+  4. 参数前提：--mount-a / --mount-b / --source 两两不同（resolve 后比较），
+     配错即退出码 2（防止同路径双端拿到假绿）
 
 用法: python sync_check.py [--source DIR] [--mount-a DIR] [--mount-b DIR]
       (退出码 0=全部通过, 1=存在异常, 2=运行环境不满足)
@@ -109,6 +112,22 @@ def main(argv=None) -> int:
         "B": Path(args.mount_b),
     }
 
+    # 参数前提校验（v0.1.5.1）：同路径双端 / 挂载端=正本 均属配错，
+    # 不校验会让用户拿到假绿或误导性"遮蔽"报告。resolve 后比较，不要求路径存在。
+    try:
+        rp = {name: p.resolve() for name, p in {"SOURCE": HUB, **ENDS}.items()}
+    except OSError as e:
+        print("ERROR: 路径解析失败（运行环境不满足）")
+        print(f" - {e}")
+        return 2
+    seen = {}
+    for name, p in rp.items():
+        if p in seen:
+            print("ERROR: 参数前提不满足（运行环境不满足）")
+            print(f" - {name} 与 {seen[p]} 指向同一路径: {p}")
+            return 2
+        seen[p] = name
+
     if not HUB.is_dir():
         print("FAIL")
         print(f" - 正本目录不存在或不是目录: {HUB}")
@@ -124,10 +143,18 @@ def main(argv=None) -> int:
         print(f" - 正本目录不可读: {HUB} ({e})")
         return 1
 
-    # 1. 正本内不得有链接
-    for d in hub_items:
-        if is_link(d):
-            problems.append(f"[正本污染] {d.name} 是链接, 正本内禁止")
+    # 1. 正本树内（含任意深度子目录）不得有链接（纪律1"任何链接"的机械承载）。
+    #    用 os.walk(followlinks=False) 而非 Path.rglob——rglob 在部分 Python 版本
+    #    会跟随链接进入目录树，触发本条纪律要防的循环扫描。
+    try:
+        for dirpath, dirnames, _ in os.walk(HUB):
+            for name in list(dirnames):
+                d = Path(dirpath) / name
+                if is_link(d):
+                    problems.append(f"[正本污染] {d.relative_to(HUB).as_posix()} 是链接, 正本内禁止")
+                    dirnames.remove(name)  # 不再深入链接子树
+    except OSError as e:
+        problems.append(f"[正本污染] 扫描中断: {e}")
 
     masters = {d.name: d for d in hub_items if not is_link(d)}
     mh = {name: tree_hash(p) for name, p in masters.items()}
@@ -144,11 +171,21 @@ def main(argv=None) -> int:
             problems.append(f"[{end}] 目录不可读: {base} ({e})")
             continue
         for x in entries:
-            if is_link(x):
-                if not x.is_dir():
+            link_mode = is_link(x)
+            if link_mode:
+                try:
+                    is_dir_target = x.is_dir()
+                except OSError as e:
+                    problems.append(f"[{end}] {x.name}: 链接状态不可判定 ({e})")
+                    continue
+                if not is_dir_target:
                     problems.append(f"[{end}] {x.name}: 悬空链接 (目标不存在)")
                     continue
-                tgt = Path(os.path.realpath(x))
+                try:
+                    tgt = Path(os.path.realpath(x))
+                except OSError as e:
+                    problems.append(f"[{end}] {x.name}: 链接目标解析失败 ({e})")
+                    continue
                 # 严格父子判定：tgt 必须等于正本或在正本目录树内。
                 # 禁止用 startswith 字符串前缀——可被同名旁支目录绕过。
                 if not (tgt == hub_real or hub_real in tgt.parents):
@@ -160,12 +197,33 @@ def main(argv=None) -> int:
                     continue
                 if x.name != mname:
                     problems.append(f"[{end}] {x.name}: 链接名与正本目录名不一致 ({mname})")
-                if tree_hash(x)[2] == 0 and mh[mname][2] > 0:
-                    problems.append(f"[{end}] {x.name}: 透过链接读不到任何文件 (静默失败)")
+                # 读取完整性判定（v0.1.5.1 修复 V1）：透过链接读正本，
+                # 不可读文件必须显式报出——SUSPENDED 不得只活在遮蔽分支里。
+                # 旧版以 "链接侧 n==0 而正本 n>0" 作静默失败判据，该条件对合法链接恒 False
+                # （链接读的就是正本同一批文件），属死代码；改为直接消费 bad 计数与 n 计数。
+                _, _, n_x, bad_x = tree_hash(x)
+                if bad_x > 0:
+                    problems.append(
+                        f"[{end}] {x.name}: SUSPENDED 透过链接存在不可读文件 ({bad_x} 个)，"
+                        "无法校验内容，需修复读取权限后复检")
                     continue
-                mounted[mname].append(end)
-            elif x.is_dir():
-                if x.name in masters:
+                if n_x == 0:
+                    problems.append(
+                        f"[{end}] {x.name}: 透过链接无可校验文件 "
+                        "(正本项为空或内容全被忽略项，一致性结论无依据)")
+                    continue
+                if end in mounted[mname]:
+                    problems.append(
+                        f"[{end}] {x.name}: 同一端重复挂载同一正本 (多挂，违反自动发现唯一性)")
+                else:
+                    mounted[mname].append(end)
+            else:
+                try:
+                    is_plain_dir = x.is_dir()
+                except OSError as e:
+                    problems.append(f"[{end}] {x.name}: 条目状态不可判定 ({e})")
+                    continue
+                if is_plain_dir and x.name in masters:
                     r, nm, _, bad_x = tree_hash(x)
                     mr, mn, _, bad_m = mh[x.name]
                     if bad_x > 0 or bad_m > 0:
