@@ -14,7 +14,8 @@ agent-governance/
 ├── docs/
 │   └── paradigm.md            # 治理范式图谱：五层范式 + 共享公理 + 适用边界（建议先读）
 ├── tools/
-│   └── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
+│   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
+│   └── sync_check_selftest.py # 6-case regression selftest for the checker (wired into CI)
 ├── governance/
 │   ├── junction-discipline.md # 正本+链接挂载模型与四条纪律、校验器设计依据
 │   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款

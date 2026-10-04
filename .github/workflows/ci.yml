@@ -52,3 +52,6 @@ jobs:
             echo "dangling link was NOT detected -- regression"; exit 1
           fi
           echo "negative case correctly FAIL-detected"
+
+      - name: sync_check regression selftest (6 cases, symlink topology)
+        run: python tools/sync_check_selftest.py
