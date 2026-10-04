@@ -16,7 +16,7 @@ agent-governance/
 │   └── proposals/             # Proposal drafts (pending/adjudicated, e.g. v0.1.5 borrowed clauses)
 ├── tools/
 │   ├── sync_check.py          # Cross-endpoint mount consistency checker (read-only, pure stdlib, Python>=3.12)
-│   └── sync_check_selftest.py # 12-case regression selftest for the checker (wired into CI)
+│   └── sync_check_selftest.py # 16-case regression selftest for the checker (wired into CI)
 ├── governance/
 │   ├── junction-discipline.md # Canonical-source + link-mount model, four disciplines, checker design rationale
 │   ├── lifecycle-clauses.md   # Demotion clock / demand-authenticity gauges / registration safeguards / council governance / learning conversion, etc.
@@ -58,7 +58,8 @@ The `<...>` variables in templates and documents mean the following; replace the
 | `<WB_HOME>` | One agent endpoint's working-data directory (archive location for historical sessions) |
 | `<PRIVATE_SYSTEM>` | The private code repository associated with the original system (example context; replace with your own project name) |
 | `<YOUR_INDUSTRY>` | Industry profile in the template examples; replace with your actual one |
-| `<YOUR_DOMAIN>` / `<YOUR_DOMAIN2>` | Business partition names in the knowledge-base placement table examples; replace with your actual partitions |
+| `<YOUR_DOMAIN>` / `<YOUR_DOMAIN2>` / `<YOUR_DOMAIN3>` | Business partition names in the knowledge-base placement table examples; replace with your actual partitions |
+| `<YOUR_NOTES_DIR>` / `<YOUR_METHOD_DIR>` | Notes-area / methodology-area directory names (path example for the connection health-check sheet) |
 
 Identifiers such as `AI-16` and `AI-1x` appearing in the templates are **example placeholders for the original system's specification document numbers** (whose bodies are not published with this repository); the placement rules must be replaced with your own standard documents. Until replaced, the relevant paragraphs serve as structural reference only and carry no authoritative force.
 
@@ -77,4 +78,4 @@ Identifiers such as `AI-16` and `AI-1x` appearing in the templates are **example
 
 ## Status
 
-v0.1.5.1 — distilled from production, desensitized via placeholderization (after three rounds of independent review); v0.1.5 absorbed externally benchmarked clauses (SUSPENDED semantics / negative-consistency vectors / pre-execution re-check), v0.1.5.1 fixed three checker defects found by adversarial review: silent missed detection in the link branch (V1), nested links inside the canonical tree missed (V2), missing argument-precondition validation (V4). Issues and PRs are welcome, but read the three documents under governance/ before proposing changes.
+v0.1.5.2 — distilled from production, desensitized via placeholderization (after six rounds of independent review, including live negative-case probes and public-surface forensics); v0.1.5 absorbed externally benchmarked clauses (SUSPENDED semantics / negative-consistency vectors / pre-execution re-check), v0.1.5.1 fixed three checker defects found by adversarial review: silent missed detection in the link branch (V1), nested links inside the canonical tree missed (V2), missing argument-precondition validation (V4), v0.1.5.2 fixed the CI lint substring false-green, added regression cases for the negative-vector checklist (case11-14), and completed template desensitization. Issues and PRs are welcome, but read the three documents under governance/ before proposing changes.
