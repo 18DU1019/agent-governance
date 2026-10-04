@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""sync_check 回归自测（二十用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
+"""sync_check 回归自测（二十一用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
 
 覆盖 v0.1.5 / v0.1.5.1 / v0.1.5.2 修复项与既有判定的回归防护：
   case1   链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
@@ -22,8 +22,9 @@
   case15b _前缀辅助目录豁免不误报（孤立目录判定的逃生通道）
   case16  正本内文件级链接必 FAIL（N8-2 回归：纪律1"任何链接"含文件级）
   case17  空字符串路径参数必退出码 2（N8-3 回归：env 空串不静默变 cwd）
+  case18  不可读子目录必 SUSPENDED（N9-1 回归：目录级权限故障不静默跳过冒充判定）
 
-用法: python tools/sync_check_selftest.py   （退出码 0=二十用例全过）
+用法: python tools/sync_check_selftest.py   （退出码 0=二十一用例全过）
 CI 已接线（.github/workflows/ci.yml）；本地随时可跑，只写系统临时目录。
 """
 import importlib.util
@@ -351,6 +352,40 @@ with Fixture() as f:
         capture_output=True, text=True)
     check("case17 空字符串路径必退出 2（N8-3 参数前提）",
           r.returncode == 2 and "空字符串" in (r.stdout + r.stderr), r.stdout + r.stderr)
+
+# case18 第九轮 N9-1 回归：不可读**子目录**（目录级权限故障）不得静默跳过——
+# 旧实现 rglob 对不可读目录零计数，判定基于残缺文件集冒充"字节一致/内容分叉"；
+# os.walk onerror 把目录级不可读计入 bad，判定必须转 SUSPENDED。
+with Fixture() as f:
+    sc = load_sc()
+    (f.root / "hub" / "skillA" / "secret").mkdir()
+    (f.root / "hub" / "skillA" / "secret" / "a.txt").write_text("AAA\n", encoding="utf-8")
+    shutil.copytree(f.root / "hub" / "skillA", f.root / "ma" / "skillA")
+    (f.root / "ma" / "skillA" / "secret" / "a.txt").write_text("BBBB\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def fake_scandir(path, *a, **k):
+        if str(path).replace("\\", "/").endswith("/skillA/secret"):
+            raise PermissionError("simulated deny")
+        return real_scandir(path, *a, **k)
+
+    os.scandir = fake_scandir
+    try:
+        import io
+        buf = io.StringIO()
+        real_out = sys.stdout
+        sys.stdout = buf
+        try:
+            code = sc.main(["--source", str(f.root / "hub"),
+                            "--mount-a", str(f.root / "ma"),
+                            "--mount-b", str(f.root / "mb")])
+        finally:
+            sys.stdout = real_out
+    finally:
+        os.scandir = real_scandir
+    check("case18 不可读子目录必 SUSPENDED 不冒充判定（N9-1 回归）",
+          code == 1 and "SUSPENDED" in buf.getvalue() and "内容分叉" not in buf.getvalue(),
+          buf.getvalue())
 
 fails = 0
 for name, ok, detail in results:

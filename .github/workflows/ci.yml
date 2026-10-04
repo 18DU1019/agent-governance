@@ -53,5 +53,5 @@ jobs:
           fi
           echo "negative case correctly FAIL-detected"
 
-      - name: sync_check regression selftest (20 cases, symlink topology)
+      - name: sync_check regression selftest (21 cases, symlink topology)
         run: python tools/sync_check_selftest.py

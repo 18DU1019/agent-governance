@@ -79,28 +79,34 @@ def tree_hash(p: Path):
     norm = hashlib.sha256()
     n = 0
     bad = 0
-    for f in sorted(p.rglob("*")):
-        if not f.is_file():
-            continue
-        if f.name in IGNORE_NAMES or f.suffix == ".pyc":
-            continue
-        if any(part in IGNORE_PARTS for part in f.relative_to(p).parts):
-            continue
-        rel = f.relative_to(p).as_posix().encode("utf-8")
-        try:
-            data = f.read_bytes()
-        except OSError:
-            data = b"<unreadable>"
-            bad += 1
-        ndata = data.replace(b"\r\n", b"\n")
-        # 长度前缀消歧（v0.1.5 C3）：纯 \0 分隔在 data 含 \0 时可跨文件边界构造碰撞，
-        # 改 len 前缀使 rel/data 边界唯一可解析。哈希值与旧版不兼容属正常——
-        # 校验器每次全量自产比对，无跨版本持久化摘要。
-        raw.update(len(rel).to_bytes(8, "big")); raw.update(rel)
-        raw.update(len(data).to_bytes(8, "big")); raw.update(data)
-        norm.update(len(rel).to_bytes(8, "big")); norm.update(rel)
-        norm.update(len(ndata).to_bytes(8, "big")); norm.update(ndata)
-        n += 1
+    # os.walk 替代 rglob（第九轮 N9-1）：rglob 对不可读子目录**静默跳过**——
+    # 目录内文件不进任何计数，判定基于残缺文件集给出"字节一致/内容分叉"的误导性结论
+    # （SUSPENDED 语义对目录级权限故障完全失效）。os.walk 的 onerror 把目录级不可读显式计入 bad。
+    def _onerror(_e):
+        nonlocal bad
+        bad += 1
+    for dirpath, dirnames, filenames in os.walk(p, onerror=_onerror):
+        for name in sorted(filenames):
+            f = Path(dirpath) / name
+            if f.name in IGNORE_NAMES or f.suffix == ".pyc":
+                continue
+            if any(part in IGNORE_PARTS for part in f.relative_to(p).parts):
+                continue
+            rel = f.relative_to(p).as_posix().encode("utf-8")
+            try:
+                data = f.read_bytes()
+            except OSError:
+                data = b"<unreadable>"
+                bad += 1
+            ndata = data.replace(b"\r\n", b"\n")
+            # 长度前缀消歧（v0.1.5 C3）：纯 \0 分隔在 data 含 \0 时可跨文件边界构造碰撞，
+            # 改 len 前缀使 rel/data 边界唯一可解析。哈希值与旧版不兼容属正常——
+            # 校验器每次全量自产比对，无跨版本持久化摘要。
+            raw.update(len(rel).to_bytes(8, "big")); raw.update(rel)
+            raw.update(len(data).to_bytes(8, "big")); raw.update(data)
+            norm.update(len(rel).to_bytes(8, "big")); norm.update(rel)
+            norm.update(len(ndata).to_bytes(8, "big")); norm.update(ndata)
+            n += 1
     return (raw.hexdigest() if n else None), (norm.hexdigest() if n else None), n, bad
 
 
