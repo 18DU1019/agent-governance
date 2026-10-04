@@ -13,7 +13,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile check
-        run: python -m py_compile tools/sync_check.py
+        run: python -m py_compile tools/sync_check.py tools/desensitize_scan.py
 
       - name: Frontmatter lint (templates)
         run: |
@@ -53,5 +53,11 @@ jobs:
           fi
           echo "negative case correctly FAIL-detected"
 
-      - name: sync_check regression selftest (21 cases, symlink topology)
+      - name: sync_check regression selftest (22 cases, symlink topology)
         run: python tools/sync_check_selftest.py
+
+      - name: desensitize_scan self-test (instrument not self-blinding)
+        run: python tools/desensitize_scan.py --selftest
+
+      - name: desensitize_scan (independent acceptance instrument, whole repo)
+        run: python tools/desensitize_scan.py

@@ -2,9 +2,9 @@
 
 [English](README_en.md)（译本，以中文版为正本）
 
-多 Agent 端环境下 skill 资产的**生命周期治理条款包**：以降档时钟/登记三防/记账口径为本体，附跨端正本挂载一致性校验器与入库/复检模板。
+**治理对象：skill 资产。** 本仓是面向多 Agent 端环境的 **skill 资产生命周期治理条款包**：以降档时钟/登记三防/记账口径为本体，附跨端正本挂载一致性校验器与入库/复检模板。
 
-本仓库解决一个具体事故形态：同一套 skill 被多端加载后，副本漂移、退役无据、记账失真。三层产物各对一类事故：条款（lifecycle-clauses）管资产何时退役与退役依据是否可信，校验器（sync_check）管挂载拓扑一致性，模板管收尾闭环。条款均源自真实生产环境的反复踩坑（CHANGELOG 记录本仓自身的构建与勘误史；条款↔具体事故的逐条映射表属原体系内部台账，未随本仓库发布，故此处不断言可逐条回溯）——这也是它区别于编排框架与分发工具的地方：那两层解决"怎么组织与同步"，本仓解决"怎么退场、退场依据是否可信"。
+本仓库解决一个具体事故形态：同一套 skill 被多端加载后，副本漂移、退役无据、记账失真。三层产物各对一类事故：条款（lifecycle-clauses）管资产何时退役与退役依据是否可信，校验器（sync_check）管挂载拓扑一致性，模板管收尾闭环。条款均源自真实生产环境的反复踩坑（CHANGELOG 记录本仓自身的构建与勘误史；条款↔具体事故的逐条映射表属原体系内部台账，未随本仓库发布，故此处不断言可逐条回溯；条款在本仓自身构建中被实际执行的证据见 [governance/lifecycle-clauses.md](governance/lifecycle-clauses.md) 附"条款自证"）——这也是它区别于编排框架与分发工具的地方：那两层解决"怎么组织与同步"，本仓解决"怎么退场、退场依据是否可信"。
 
 ## 目录结构
 
@@ -16,10 +16,11 @@ agent-governance/
 │   └── proposals/             # 提案稿（待裁定/已裁定留档，如 v0.1.5 借件条款化）
 ├── tools/
 │   ├── sync_check.py          # 跨端挂载一致性校验器（只读，纯 stdlib，Python>=3.12）
-│   └── sync_check_selftest.py # 校验器二十一用例回归自测（CI 已接线，本地随时可跑）
+│   ├── sync_check_selftest.py # 校验器二十二用例回归自测（CI 已接线，本地随时可跑）
+│   └── desensitize_scan.py    # 脱敏验收的独立仪器（形态扫描+白名单反证，CI 已接线）
 ├── governance/
 │   ├── junction-discipline.md # 正本+链接挂载模型与四条纪律、校验器设计依据
-│   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款
+│   ├── lifecycle-clauses.md   # 降档时钟/需求真伪检具/登记三防/合议治理/学习转化等条款 + 附"条款自证"表
 │   └── closure-workflow.md    # 会话收尾四步闭环（汇总→蒸馏→入库判定→轻复检）
 └── templates/
     ├── kb-ingest-gate/        # 知识库入库闸门（防复制品、按落位规则接链、复检闭环）
@@ -36,7 +37,7 @@ agent-governance/
    python tools/sync_check.py --source ./skills --mount-a <AGENT_HOME_A>/skills --mount-b <AGENT_HOME_B>/skills
    ```
 
-   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、链接侧读取完整性判定（透过链接不可读/无可校验文件同样报出）、悬空链接、同端多挂检出、挂载端孤立实体目录检出（退役残留形态；`_`/`.` 前缀目录豁免）、正本树内文件级链接检出与挂载分布报表；参数配错（双端同路径/挂载端=正本/空字符串路径）退出码 2。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
+   亦支持环境变量 `GOV_SKILL_SOURCE / GOV_MOUNT_A / GOV_MOUNT_B`（命令行优先）。输出含遮蔽检测（字节一致/仅行尾差异/内容分叉/**SUSPENDED 无法检查**四档判定——不可读文件不冒充一致结论）、链接侧读取完整性判定（透过链接不可读/无可校验文件同样报出）、悬空链接、同端多挂检出、挂载端孤立实体目录检出（退役残留形态；`_`/`.` 前缀目录豁免）、链接指向嵌套同名目录检出（防同名冒充顶层正本）、正本树内文件级链接检出与挂载分布报表；参数配错（双端同路径/挂载端=正本/空字符串路径）退出码 2。要求 Python >= 3.12；同时识别 Windows junction 与 Unix symlink。设计依据、禁忌与负例覆盖面清单见 [governance/junction-discipline.md](governance/junction-discipline.md)。
 
    **选型边界**：若你的场景是"从外部安装 skill 并跟踪版本"，官方 `gh skill`（版本 pin/provenance）更合适；本校验器针对**自建正本、多端挂载**场景——官方工具不管这种拓扑的一致性。
 
@@ -51,7 +52,7 @@ agent-governance/
 | `<YOUR_VAULT_PATH>` | 你的知识库（如 Obsidian vault）根目录 |
 | `<YOUR_SCRIPTS_DIR>` | 工具脚本存放目录（原体系的 `脚本/`） |
 | `<YOUR_WORKBENCH>` | 运行台/工作台目录（预览站点、临时产物根） |
-| `<YOUR_AI_HUB>` | 知识库内 AI 机制/检验报告分区的目录名 |
+| `<YOUR_AI_HUB>` | 知识库内 AI 机制/复检产出分区的目录名 |
 | `<AGENT_HOME_A>` / `<AGENT_HOME_B>` | 快速开始示例中的两个挂载端目录（A/B 为通用名） |
 | `<AGENT_HOME_TRAE>` / `<AGENT_HOME_WB>` | 模板正文中按端名直呼的挂载端配置主目录（与 A/B 同义，保留具体端名作叙事锚点） |
 | `<USER_HOME>` | 用户主目录（`~`） |
@@ -59,7 +60,9 @@ agent-governance/
 | `<PRIVATE_SYSTEM>` | 原体系关联的私有代码库（示例语境，替换为你自己的项目名） |
 | `<YOUR_INDUSTRY>` | 模板示例中的行业画像，按实际替换 |
 | `<YOUR_DOMAIN>` / `<YOUR_DOMAIN2>` / `<YOUR_DOMAIN3>` | 知识库落位表示例中的业务分区名，替换为你的实际分区 |
-| `<YOUR_NOTES_DIR>` / `<YOUR_METHOD_DIR>` | 笔记区/方法论区目录名（连接体检表所在路径示例） |
+| `<YOUR_NOTES_DIR>` / `<YOUR_METHOD_DIR>` | 笔记区/方法论区目录名（`<YOUR_CHECK_FILE>` 所在路径示例） |
+| `<YOUR_REPORT_DIR>` / `<YOUR_WATCH_FILE>` / `<YOUR_REF_DIR>` / `<YOUR_WORKS_DIR>` / `<YOUR_IDEA_DIR>` / `<YOUR_TOPIC_DIR>` / `<YOUR_CHECK_FILE>` / `<YOUR_REVIEW_DIR>` / `<YOUR_REVIEW_FILE>` / `<YOUR_ARCHIVE_DIR>` / `<YOUR_PRIVATE_DIR>` / `<YOUR_MOC>` / `<AGENT_MEM_DIR>` | 知识库落位示例中的业务子目录/文件名占位（替换为你自己的分区与文件命名） |
+| `<MD2HTML_SCRIPT>` / `<HTML2MD_SCRIPT>` / `<FIX_LINKS_SCRIPT>` / `<PREVIEW_INDEX_SCRIPT>` / `<BUILD_PREVIEW_SCRIPT>` / `<TAGS_BULK_SCRIPT>` / `<GROW_MOC_SCRIPT>` / `<DISTILL_SCRIPT>` / `<STAT_SCRIPT>` | 模板正文引用的工具脚本名占位（替换为你自己的脚本名）；`<版本>` 为运行时版本段占位 |
 
 模板内出现的 `AI-16`、`AI-1x` 等编号是**原体系规范文档编号的示例占位**（其正文未随本仓库发布），落位规则需替换为你自己的标准文档；未替换前，相关段落仅作结构参考，不具权威效力。
 
@@ -78,4 +81,4 @@ agent-governance/
 
 ## 状态
 
-v0.1.5.2 —— 从生产环境提炼，占位符化脱敏（经九轮独立审查，含负例实战探针与公开面取证）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏，并修复第八/九轮探针新发现的四项：挂载端孤立实体目录假绿（N8-1，退役残留形态）、正本内文件级链接漏检（N8-2，纪律1 文件级承载）、空字符串路径参数静默变 cwd（N8-3，退出码 2）、不可读子目录静默跳过冒充判定（N9-1，目录级权限故障转 SUSPENDED）。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。
+v0.1.5.2 —— 从生产环境提炼，占位符化脱敏（经十轮独立审查，含负例实战探针与公开面取证；另经一轮根因修复：新增独立脱敏验收仪器 `tools/desensitize_scan.py` 与条款 10「清洗与验证不得共用同一把尺」，已入 CI）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏，并修复第八/九/十轮探针新发现的五项：挂载端孤立实体目录假绿（N8-1，退役残留形态）、正本内文件级链接漏检（N8-2，纪律1 文件级承载）、空字符串路径参数静默变 cwd（N8-3，退出码 2）、不可读子目录静默跳过冒充判定（N9-1，目录级权限故障转 SUSPENDED）、链接指向正本树内嵌套同名目录冒充顶层正本拿假绿（N10-1，realpath 后增顶层身份校验）。本仓自身适用缺口（含生命力判据缺口）的如实登记见 [governance/lifecycle-clauses.md](governance/lifecycle-clauses.md) 附"条款自证"。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。

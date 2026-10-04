@@ -103,11 +103,11 @@ git -c core.quotepath=false status -s   # 应干净，无 D
    git commit -o -m "msg" -- "本轮/新文件.md" "本轮/改动的MOC.md"   # -o/--only，等价于 commit -- pathspec
    ```
    **选项顺序是硬约束 ★2026-09-16 实测踩坑**：`git commit` 的所有选项（`-o`、`-m`）**必须写在 `--` 之前**。写成 `git commit -o <paths> -m "msg"` 会报 `error: pathspec '-m' did not match any file(s) known to git`，`-m` 与消息正文被整体当成 pathspec 解析，提交根本不发生。更隐蔽的是**失败后文件仍留在暂存区**（staged 由基线 31 变成 33），若紧接着重跑脚本并仍用"提交前的 staged 数"当基线，会把基线误记为 33，于是第 103 行第 ② 项校验（"其余 staged 条目数与提交前一致"）形同虚设、什么都验不出来。正解：提交失败后先 `git status --porcelain` 确认真实暂存内容与数量，重跑时以**上一次成功提交对应的干净基线**为准（2026-09-16 本轮为 31）。
-   机制说明：`git commit [-o|--only] <pathspec>` 只提交匹配路径的变更，暂存区里其他文件（含 `_agent/` 的记忆改动）保持原状态不被提交。
+   机制说明：`git commit [-o|--only] <pathspec>` 只提交匹配路径的变更，暂存区里其他文件（含 `<AGENT_MEM_DIR>/` 的记忆改动）保持原状态不被提交。
    **提交后三重验证（2026-09-14 实测有效）**：① 用 `git diff --cached --name-only` 确认本轮文件已不在暂存列表；② 其余 staged 条目数与提交前一致（该次实测提交前后其他 staged 恒为 125 条）；③ `git status --porcelain -- <本轮文件>` 无输出。三项齐过才算隔离提交成功，第 ② 项是"没顺手带走别人暂存内容"的关键证据。
    注意：未跟踪新文件**必须先 `git add`**，仅用 `git commit -- <path>` 对未跟踪文件无效（Git 只识别已跟踪文件的变更）。
 7. **同一文件混有本人与他人在制改动 → 部分提交法** ★2026-09-16 实测新增（第 6 条的重要补丁）：
-   - **坑在哪**：`git commit --only <pathspec>`（等价 `git commit <pathspec>`）提交的是该路径的**工作区内容**。当这个文件同时含并发会话尚未提交的改动时，第 6 条那个写法会把别人的在制工作一起带进提交。本轮实测 `grow_moc.py` 工作区 diff 106 行，其中只有 24 行是本人的（其余是并发会话的 `ac.write_committed` 重构）。
+   - **坑在哪**：`git commit --only <pathspec>`（等价 `git commit <pathspec>`）提交的是该路径的**工作区内容**。当这个文件同时含并发会话尚未提交的改动时，第 6 条那个写法会把别人的在制工作一起带进提交。本轮实测 `<GROW_MOC_SCRIPT>` 工作区 diff 106 行，其中只有 24 行是本人的（其余是并发会话的 `ac.write_committed` 重构）。
    - **判据**：先 `git diff -- <file>` 把全文导出去逐 hunk 看，凡出现自己不认识的函数/模块引用（如 `ac.*`）、命名风格突变的块，即属他人在制。
    - **正解**：构造「HEAD + 仅本人改动」的精确内容写进 index，再**不带 pathspec** 提交 index：
      1. `git show HEAD:<file>` 取基线内容
@@ -191,14 +191,14 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 ### 1.5.1 落位框架（按交付物类型归业务目录）
 | 交付物类型 | 入库位置 |
 |---|---|
-| 股票/基金/标的分析研报（HTML/PDF） | `07-<YOUR_DOMAIN2>/研报交付/` |
-| 标的观察笔记 | `07-<YOUR_DOMAIN2>/标的观察-xxx.md` |
-| 设计效果图/方案 | `06-<YOUR_DOMAIN>/参考图/` |
-| 自家项目档案 | `06-<YOUR_DOMAIN>/我的作品/` |
-| 他人灵感/作品 | `06-<YOUR_DOMAIN>/灵感与素材库/` |
+| 股票/基金/标的分析研报（HTML/PDF） | `07-<YOUR_DOMAIN2>/<YOUR_REPORT_DIR>/` |
+| 标的观察笔记 | `07-<YOUR_DOMAIN2>/<YOUR_WATCH_FILE>` |
+| 设计效果图/方案 | `06-<YOUR_DOMAIN>/<YOUR_REF_DIR>/` |
+| 自家项目档案 | `06-<YOUR_DOMAIN>/<YOUR_WORKS_DIR>/` |
+| 他人灵感/作品 | `06-<YOUR_DOMAIN>/<YOUR_IDEA_DIR>/` |
 | AI/技能/工具类产出 | `<YOUR_AI_HUB>/` |
-| 量化成果 | `07-<YOUR_DOMAIN2>/量化交易/` |
-| 实在归不进的 | `99-归档/` |
+| 量化成果 | `07-<YOUR_DOMAIN2>/<YOUR_TOPIC_DIR>/` |
+| 实在归不进的 | `<YOUR_ARCHIVE_DIR>/` |
 
 ### 1.5.2 入库三步动作
 1. **拷贝文件**：按上表把交付件拷入对应目录，工作区原件保留不删（留痕）。
@@ -233,18 +233,18 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 不要只看工具返回的"成功"，要亲眼核验磁盘状态。
 
 ### 1.6.2 vault 外正本策略（关键交付物必须双份）
-- **正本** = `<WB_HOME>\preview\` 下经 md2html.py 生成的完整 HTML；
+- **正本** = `<WB_HOME>\preview\` 下经 <MD2HTML_SCRIPT> 生成的完整 HTML；
 - **副本** = vault 内的 `.md`。
 - 规则：重要的策略/方案/研报类交付件，**先转 HTML 落 preview 作正本，再写 vault md**；md 丢了可以从正本逆向还原（1.6.3），不会全损。
 - ⚠️ **边界澄清（2026-08-28）**：本条是**归档防灾**用途，只针对重要策略/方案/研报类交付件，**不是展示环节的自动生成依据**。日常展示已按 1.6.4 改为按需生成，勿据此把每个 md 都转一遍 HTML。
 - 反向提醒：preview 里有 HTML **不代表已入库**；入库状态以「vault md 存在 + MOC 接链」为准，两者缺一都要补。
 
 ### 1.6.3 逆向还原工具（md 丢失时的急救通道）
-- `html2md.py`（稳定位置 `<WB_HOME>\html2md.py`）：`python html2md.py <输入.html> <输出.md>`，把 preview HTML 还原成 md（保留章节、表格、frontmatter）。
+- `<HTML2MD_SCRIPT>`（稳定位置 `<WB_HOME>\<HTML2MD_SCRIPT>`）：`python <HTML2MD_SCRIPT> <输入.html> <输出.md>`，把 preview HTML 还原成 md（保留章节、表格、frontmatter）。
 - 还原后必做三件事：
   1. 修 HTML→MD 还原产生的**废链接**（`[[x]]x]` 这种拼接瑕疵，grep `\]\]` 附近人工核对）；
   2. `grep` 校验章节齐全（`grep -c "^#\{1,3\} "` 对照原结构）；
-  3. 再经 md2html.py 重转 HTML，保证 md↔html 一致（防止"改 md 忘转 html"分叉）。
+  3. 再经 <MD2HTML_SCRIPT> 重转 HTML，保证 md↔html 一致（防止"改 md 忘转 html"分叉）。
 - 已知坑：脚本用 `skip_depth` 只跳过 `head/style/script/meta/title` 与提示框 div；`html/body/article` 等容器标签**不**触发跳过——早期版本因误跳 article 导致整篇被丢，已修复，勿回退成"见 body 就跳"的写法。
 
 ### 1.6.4 HTML 展示链路（**2026-08-28 起改为按需生成**，原 md-html-preview skill 并入）
@@ -252,24 +252,24 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 > WorkBuddy 内置 md 预览器对中文路径/新写入文件报"暂无数据"，文件本身没坏；日常查看首选 Obsidian 双击 `.md`（渲染完美、零成本）。
 > ⚠️ 仍有效的事实：内置浏览器面板对本地 HTML **同样空白**，所以每次真的生成了 HTML，必须明确告知用户「双击 HTML 文件」或起本地服务 `python -m http.server 8765 --directory "<WB_HOME>/preview"` 访问 `http://127.0.0.1:8765/`。
 
-1. **工具**：转换器 `<WB_HOME>\md2html.py`（纯标准库、不联网）；Python `<WB_HOME>\binaries\python\versions\<版本>\python.exe`（受管版）；输出目录 `<WB_HOME>\preview\`（不存在先 `mkdir -p`）。
-2. **转 HTML**：`python md2html.py "<md绝对路径>" -o "<WB_HOME>/preview/<同名>.html" --vault "<YOUR_VAULT_PATH>"`。
+1. **工具**：转换器 `<WB_HOME>\<MD2HTML_SCRIPT>`（纯标准库、不联网）；Python `<WB_HOME>\binaries\python\versions\<版本>\python.exe`（受管版）；输出目录 `<WB_HOME>\preview\`（不存在先 `mkdir -p`）。
+2. **转 HTML**：`python <MD2HTML_SCRIPT> "<md绝对路径>" -o "<WB_HOME>/preview/<同名>.html" --vault "<YOUR_VAULT_PATH>"`。
    ⚠️ **Git Bash 路径坑**：`/c/...` 会被 MSYS 错拼成带错误盘符的路径——必须 `MSYS_NO_PATHCONV=1` + 带盘符的原生绝对路径，成功范式：
    ```bash
    MSYS_NO_PATHCONV=1 "<WB_HOME>/binaries/python/versions/<版本>/python.exe" \
-     "<WB_HOME>/md2html.py" \
+     "<WB_HOME>/<MD2HTML_SCRIPT>" \
      "<YOUR_VAULT_PATH>/子目录/笔记.md" -o "<WB_HOME>/preview/笔记.html" \
      --vault "<YOUR_VAULT_PATH>"
    ```
-3. **修 obsidian:// 失效链接（如存在才处理）**：md2html.py 把 `[[wiki]]` 转成 `obsidian://open?path=...` 协议链接，离开 Obsidian 在 HTTP 浏览器点击会失效。⚠️ 2026-08-15 实测：**`fix_obsidian_links.py` 在机器上两处 `.workbuddy` 目录均不存在**（skill 文档此前有误）；且 md2html.py 产出的报告 HTML 常含 **0 个** obsidian:// 链接（wikilink 已就地处理）——先 `grep -c 'obsidian://' <html>` 确认，有才处理。缺失脚本时用内联 Python 替换：
+3. **修 obsidian:// 失效链接（如存在才处理）**：<MD2HTML_SCRIPT> 把 `[[wiki]]` 转成 `obsidian://open?path=...` 协议链接，离开 Obsidian 在 HTTP 浏览器点击会失效。⚠️ 2026-08-15 实测：**`<FIX_LINKS_SCRIPT>` 在机器上两处 `<WB_HOME>` 目录均不存在**（skill 文档此前有误）；且 <MD2HTML_SCRIPT> 产出的报告 HTML 常含 **0 个** obsidian:// 链接（wikilink 已就地处理）——先 `grep -c 'obsidian://' <html>` 确认，有才处理。缺失脚本时用内联 Python 替换：
    ```python
    import re
    html = open(路径, encoding='utf-8').read()
    html = re.sub(r'<a href="obsidian:[^"]*">([^<]*)</a>', r'<span class="obs-only">\1</span>', html)
    open(路径, 'w', encoding='utf-8').write(html)
    ```
-4. **自动生成入口页**：preview 根目录缺 index.html 或文件列表变了 → 跑 `gen_preview_index.py` 列出所有 HTML + 可点击 HTTP 链接。批量/固定入口模式参考 `<WB_HOME>\preview\知识库中枢\`（`build_preview.py` 批量转换 + `刷新*.bat` 一键重建）。
-   ⚠️ **2026-09-11 实测修正**：`gen_preview_index.py` **不存在**于 `<WB_HOME>\`（与 `fix_obsidian_links.py` 同样缺失，勿按字面去跑，会报 no such file）。preview 根 `index.html` 停留在 2026-08-06 版本，已有 393 个 HTML 未入索引。需入口页时只有两条实际可行路径：① 调 `gen_preview_index.py` 的替代品，即 `preview\知识库中枢\build_preview.py`；② 自行用 Python 内联生成 index（扫描 `*.html` 拼 ul 列表）。不要为单件交付重建根 index，避免动到其他会话产物。
+4. **自动生成入口页**：preview 根目录缺 index.html 或文件列表变了 → 跑 `<PREVIEW_INDEX_SCRIPT>` 列出所有 HTML + 可点击 HTTP 链接。批量/固定入口模式参考 `<WB_HOME>\preview\知识库中枢\`（`<BUILD_PREVIEW_SCRIPT>` 批量转换 + `刷新*.bat` 一键重建）。
+   ⚠️ **2026-09-11 实测修正**：`<PREVIEW_INDEX_SCRIPT>` **不存在**于 `<WB_HOME>\`（与 `<FIX_LINKS_SCRIPT>` 同样缺失，勿按字面去跑，会报 no such file）。preview 根 `index.html` 停留在 2026-08-06 版本，已有 393 个 HTML 未入索引。需入口页时只有两条实际可行路径：① 调 `<PREVIEW_INDEX_SCRIPT>` 的替代品，即 `preview\知识库中枢\<BUILD_PREVIEW_SCRIPT>`；② 自行用 Python 内联生成 index（扫描 `*.html` 拼 ul 列表）。不要为单件交付重建根 index，避免动到其他会话产物。
 5. **本地 HTTP 服务**（未跑时启动）：`python -m http.server 8765 --directory "<WB_HOME>/preview"`（后台），入口 `http://127.0.0.1:8765/`。
 6. **交付与告知**：present_files 传 HTML 路径（只保证文件交付，**不保证内置预览**）；必须明确告诉用户两种打开方式——① 双击 HTML 文件；② 访问 `http://127.0.0.1:8765/` 点文件名。
 7. **⚠️ 关键实测（2026-08-05）**：WorkBuddy 内置浏览器对本地 HTML **也是空白**（不只是 md，截图实测确认；HTTP 200 / 文件合法仍显示"暂无数据"）。所以"告知用户用系统浏览器打开"是交付的必备步骤，不是可选项。
@@ -278,7 +278,7 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 ### 1.6.5 标准闭环链（每件交付物的完整动作序列）
 1. 内容落地：Write/Edit 写或改 vault md；
 2. 二次验证（1.6.1，ls + grep 关键句 + MOC 目标存在）；
-3. 转正本：md2html.py 重转 preview HTML（按 1.6.4 避开路径坑）；
+3. 转正本：<MD2HTML_SCRIPT> 重转 preview HTML（按 1.6.4 避开路径坑）；
 4. 校验 HTML 含新内容（`grep -c` 关键句，防"md 改了 html 没重转"分叉）；
 5. MOC 接链 / 索引行同步（防悬空引用）；
 6. 留痕：今日工作日志 + 项目 MEMORY.md（跨会话风险点必须进长期记忆）；
@@ -301,7 +301,7 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
    - frontmatter 齐全（title/created/status/type/author/source）
    - 富格式报告(html)是否配套
 2. 分类校验（归位）
-   - 文件是否在正确主题目录（如量化成果应在 07-<YOUR_DOMAIN2>/量化交易/）
+   - 文件是否在正确主题目录（如量化成果应在 07-<YOUR_DOMAIN2>/<YOUR_TOPIC_DIR>/）
    - 跨目录断链检查（如 MOC 在 06-<YOUR_DOMAIN> 却链了 07 的文件）
 3. 梳理去重
    - 同一主题多份笔记 → 是否重复？命名是否一致（建议 主题_YYYY-MM-DD）
@@ -330,19 +330,19 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 
 ### 六步流程（每步都有已验证工具）
 
-1. **诊断（Python 扫描）**：用 Python os.walk 输出各区四维（md 数 / 带 tags 数 / 含链文件数 / 出链总数），判定已处理区、待处理区、跳过区（<YOUR_AI_HUB>机制区 / 99-归档 / 00-私人档案 / 机器产出为主区）。
+1. **诊断（Python 扫描）**：用 Python os.walk 输出各区四维（md 数 / 带 tags 数 / 含链文件数 / 出链总数），判定已处理区、待处理区、跳过区（<YOUR_AI_HUB>机制区 / <YOUR_ARCHIVE_DIR> / <YOUR_PRIVATE_DIR> / 机器产出为主区）。
    ⚠️ **硬性教训：统计类操作禁用 shell `for f in $(find ...)` 循环**——含空格文件名（如 `06-<YOUR_DOMAIN> MOC.md`）会被拆成两行误报"漏 tags"（2026-08-15 踩坑两次）。一律用 Python（os.walk）精确校验。
-2. **标签批量补全（规则化）**：运行 `python <WB_HOME>\scripts\kb_tags_bulk.py`（按目录+命名正则匹配 tags，跳过已有 tags，frontmatter 内 `updated:` 行前插入）。规则要 MECE 无交叉；已带 tags 的文件跳过；改前先快照（md5 全库）。
-3. **连接仪式**：打开 `02-<YOUR_NOTES_DIR>/<YOUR_METHOD_DIR>/连接体检表.md` 跑 Dataview 查询，给"出链<3"的卡片补跨域链（领域交界处才连，宁缺毋滥）。手写笔记区通常连接健康，重点是标签，不要过度连接。
+2. **标签批量补全（规则化）**：运行 `python <WB_HOME>\scripts\<TAGS_BULK_SCRIPT>`（按目录+命名正则匹配 tags，跳过已有 tags，frontmatter 内 `updated:` 行前插入）。规则要 MECE 无交叉；已带 tags 的文件跳过；改前先快照（md5 全库）。
+3. **连接仪式**：打开 `02-<YOUR_NOTES_DIR>/<YOUR_METHOD_DIR>/<YOUR_CHECK_FILE>.md` 跑 Dataview 查询，给"出链<3"的卡片补跨域链（领域交界处才连，宁缺毋滥）。手写笔记区通常连接健康，重点是标签，不要过度连接。
 4. **归档三分法**：同类序列判定=命名前缀分组（`前缀-XX` uniq -c）。三类处置：独立交付物→原位保留；决策收尾→结论并入正本；验证过程→归档区保真（md+html 成对，零删除）。归档区建 README 索引 + MOC 接链。
 5. **git 提交（0.6 协议）**：快照 → `git add -A <目录级>`（限定本会话目录，禁用 `git add .`；改名文件用 -A 自动识别 rename）→ commit → **立即验证零意外 D**。跳过另一会话活跃文件（M 状态主策略 / 未跟踪日报等）。
-6. **三把标尺复检**：按 Phase 3 出独立检验报告（落 `<YOUR_AI_HUB>/检验报告/`，md+html），用户"固化"指令时写回 AI-18/19 状态行（追加一行 `> 🔄 复检 2026-08-15（...）`，格式仿历史记录）。
+6. **三把标尺复检**：按 Phase 3 出独立检验报告（落 `<YOUR_AI_HUB>/<YOUR_REVIEW_DIR>/`，md+html），用户"固化"指令时写回 AI-18/19 状态行（追加一行 `> 🔄 复检 2026-08-15（...）`，格式仿历史记录）。
 
 ### 固化位置
 
-- 批量标签脚本：`<WB_HOME>\scripts\kb_tags_bulk.py`（9 业务区）/ `kb_tags_bulk_06design.py`（06 区）
-- 检验报告样例：`<YOUR_AI_HUB>/检验报告/检验报告-20260815-知识库PKM优化与归档整合三把标尺检验.md`
-- 工具脚本**不入 KB**（Phase 1 死规矩），放 `<WB_HOME>\scripts\`；`草稿/_stat.py` 是用户有意放置的例外。
+- 批量标签脚本：`<WB_HOME>\scripts\<TAGS_BULK_SCRIPT>`（9 业务区）/ `<TAGS_BULK_SCRIPT>`（06 区）
+- 检验报告样例：`<YOUR_AI_HUB>/<YOUR_REVIEW_DIR>/<YOUR_REVIEW_FILE>.md`
+- 工具脚本**不入 KB**（Phase 1 死规矩），放 `<WB_HOME>\scripts\`；`草稿/<STAT_SCRIPT>` 是用户有意放置的例外。
 
 ---
 
@@ -375,7 +375,7 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 
 ### 3.4 复检结果的去向（范围约束下的写回规则）
 - **默认不直接改 AI-18/19 状态行**（它们是他人/历史会话的机制文档，且受范围约束保护）。
-- 正确做法：**出独立检验报告**（md + 按 md2html.py 转 html，落 `<YOUR_AI_HUB>/检验报告/` 或 preview），报告内写清三标尺结论 + 待办（P0/P1/P2）。
+- 正确做法：**出独立检验报告**（md + 按 <MD2HTML_SCRIPT> 转 html，落 `<YOUR_AI_HUB>/<YOUR_REVIEW_DIR>/` 或 preview），报告内写清三标尺结论 + 待办（P0/P1/P2）。
 - 若用户明确要求"写回 AI-18/19 状态行"→ 视为显式 opt-in，按 AI-17 §4.6 追加一行"复检 YYYY-MM-DD（事件）：覆盖矩阵 X/Y …"。
 
 ---
@@ -404,7 +404,7 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 ## 示例
 错误（一股脑）：把 random_universe/ 26 文件（13MB）+ 加权 7 文件（3.8MB）原样复制进 KB
 → 17MB 复制品 + 内容散落多份笔记、MOC 断链。
-正确（过全流程 + 三标尺）：Phase 0 前检（清 lock/备份 ??）→ Phase 1 四问（复制品 MD5 识别，不收）→ Phase 1.5 落位（KB 只留笔记两份复盘 .md/.html + 整合结论 .md，带 frontmatter，MOC 写路径索引）→ Phase 2 治理（整合结论合成速读终态，对账无遗漏无断链）→ Phase 3 三标尺复检（AI-17 十阶段对照 / AI-18 9 大思维 9/9 / AI-19 三因子）→ 独立检验报告落 `<YOUR_AI_HUB>/检验报告/`，全程未触发 git 破坏。
+正确（过全流程 + 三标尺）：Phase 0 前检（清 lock/备份 ??）→ Phase 1 四问（复制品 MD5 识别，不收）→ Phase 1.5 落位（KB 只留笔记两份复盘 .md/.html + 整合结论 .md，带 frontmatter，MOC 写路径索引）→ Phase 2 治理（整合结论合成速读终态，对账无遗漏无断链）→ Phase 3 三标尺复检（AI-17 十阶段对照 / AI-18 9 大思维 9/9 / AI-19 三因子）→ 独立检验报告落 `<YOUR_AI_HUB>/<YOUR_REVIEW_DIR>/`，全程未触发 git 破坏。
 
 ### 血泪案例（已发生，务必避免）
 第二仗清理 KB 源码时：① 残留 `.git/index.lock` 死锁让 `git rm` 循环误删了 2 个合法笔记（已 checkout HEAD 救回）；
@@ -418,15 +418,15 @@ cp "KB文件路径" "<PRIVATE_SYSTEM>/.kb_archive/YYYY-MM-DD/相对路径"
 - v1.2.0：新增"范围约束"硬边界——本 skill 的入库/闭环/整理/查漏补缺动作**默认只针对本次对话产生的内容**，不扫全库、不波及他人或其他会话文件；扩展 scope 须用户显式点名，当作独立一仗；查漏补缺只验本次新增/修改，不做全库地毯式扫描。
 - v1.3.0：① 新增 Phase 1.5「入库要求与流程」——把 AI-16 交付文件入库规范（落位框架表 / 入库三步动作 / frontmatter 与命名规范 / md-html 分层 / AI 结论入库 / 标准入库流程）内嵌执行；② 新增 Phase 3「三标尺复检」——把 AI-17（十阶段 SOP 对照）、AI-18（毛选 9+5 思维矩阵）、AI-19（逻辑三因子 + 4 框架 + 闭环 5 步）内嵌为每仗收尾必做；③ 复检结果默认出独立检验报告（受范围约束保护），显式 opt-in 才写回 AI-18/19 状态行。
 - v1.3.1：用户明确"自动同步不能关"（2026-08-15）→ Phase 0.2 从"先关自动同步"改为"能关则关、不能关走协议"；新增 0.6「自动同步开启下的安全操作协议」——少 commit / 先快照后提交 / 精确 add / 破坏复现取证定位 / 入库不 commit 也能闭环。
-- v1.4.0（2026-08-15）：新增 Phase 1.6「方法论闭环」——① 入库后二次验证（工具成功≠文件持久，vault 曾整体回滚冲掉当天新笔记，MOC 悬空）；② vault 外正本策略（preview HTML 为正本、vault md 为副本，md 丢失可从正本逆向还原）；③ html2md.py 逆向还原工具（稳定位置 `<USER_HOME>\.workbuddy\html2md.py`）及"废链接修复→章节校验→重转 HTML"三步；④ md2html.py 的 Git Bash 路径坑（`MSYS_NO_PATHCONV=1` + 盘符路径）；⑤ 标准闭环链 8 步动作序列；⑥ 声明纪律——未二次验证不许说"已入库"。
+- v1.4.0（2026-08-15）：新增 Phase 1.6「方法论闭环」——① 入库后二次验证（工具成功≠文件持久，vault 曾整体回滚冲掉当天新笔记，MOC 悬空）；② vault 外正本策略（preview HTML 为正本、vault md 为副本，md 丢失可从正本逆向还原）；③ <HTML2MD_SCRIPT> 逆向还原工具（稳定位置 `<WB_HOME>\<HTML2MD_SCRIPT>`）及"废链接修复→章节校验→重转 HTML"三步；④ <MD2HTML_SCRIPT> 的 Git Bash 路径坑（`MSYS_NO_PATHCONV=1` + 盘符路径）；⑤ 标准闭环链 8 步动作序列；⑥ 声明纪律——未二次验证不许说"已入库"。
 - v2.0.0（2026-08-15）：**三合一整合**（用户指令"整合优化"）——本 skill 升为 Obsidian 知识库**总入口**，合并停用 `obsidian`（v1.1.0）与 `md-html-preview` 两个旧 skill：
   - 新增 **Phase 0.5「Obsidian 基础操作速查」**（原 obsidian skill）：vault 路径/目录约定/查读写改四工具/wikilink 与用户背景约定。
-  - 扩展 **1.6.4「HTML 展示链路」**（原 md-html-preview skill）：md2html.py 完整用法（含 `--vault` 参数与路径坑）、`fix_obsidian_links.py` 修 obsidian:// 失效链接、`gen_preview_index.py` 入口页、本地 HTTP 服务 8765（`http://127.0.0.1:8765/`）、内置浏览器对本地 HTML 也空白的关键实测、批量模式（`preview\知识库中枢\`）。
+  - 扩展 **1.6.4「HTML 展示链路」**（原 md-html-preview skill）：<MD2HTML_SCRIPT> 完整用法（含 `--vault` 参数与路径坑）、`<FIX_LINKS_SCRIPT>` 修 obsidian:// 失效链接、`<PREVIEW_INDEX_SCRIPT>` 入口页、本地 HTTP 服务 8765（`http://127.0.0.1:8765/`）、内置浏览器对本地 HTML 也空白的关键实测、批量模式（`preview\知识库中枢\`）。
   - 1.5.3 引用修正（"obsidian skill 的 AI-16 规范"→已并入本 skill）；1.6.5 闭环链第 7 步指向 1.6.4 完整链路。
   - 旧 `obsidian` / `md-html-preview` 两个 SKILL.md 已标记 `status: superseded`（停用不删，可回滚），description 同步标注"已被 kb-ingest-gate v2.0 取代"。
-- v2.1.0（2026-08-15）：新增 **Phase 2.5「全库批量闭环」**（PKM 优化可复用流程，实战固化）——六步流程（Python 诊断→标签规则化批量→连接仪式→归档三分法→0.6 协议提交→三标尺复检）+ 固化脚本位置（`.workbuddy/scripts/kb_tags_bulk*.py`）+ 硬性教训（统计禁用 shell for $(find) 循环、工具脚本不入 KB）。
-- v2.1.1（2026-09-11）：两处实测修正 —— ① Phase 0.6 新增第 6 条「他人暂存区内容必须用限定路径提交避开」：KB 常驻 `_agent/03-记忆/` 大量已 staged 的 `M` 文件，直接 commit 会连带提交，须用 `git commit -m "msg" -- <pathspec>` 限定范围，并提示未跟踪新文件必须先 `git add`；② 1.6.4 第 4 点补注：`gen_preview_index.py` 实测不存在（与 `fix_obsidian_links.py` 同），preview 根 `index.html` 停留 2026-08-06 版本、393 个 HTML 未入索引，给出两条实际可行的入口页生成路径。
+- v2.1.0（2026-08-15）：新增 **Phase 2.5「全库批量闭环」**（PKM 优化可复用流程，实战固化）——六步流程（Python 诊断→标签规则化批量→连接仪式→归档三分法→0.6 协议提交→三标尺复检）+ 固化脚本位置（`<WB_HOME>/scripts/<TAGS_BULK_SCRIPT>`）+ 硬性教训（统计禁用 shell for $(find) 循环、工具脚本不入 KB）。
+- v2.1.1（2026-09-11）：两处实测修正 —— ① Phase 0.6 新增第 6 条「他人暂存区内容必须用限定路径提交避开」：KB 常驻 `<AGENT_MEM_DIR>/` 大量已 staged 的 `M` 文件，直接 commit 会连带提交，须用 `git commit -m "msg" -- <pathspec>` 限定范围，并提示未跟踪新文件必须先 `git add`；② 1.6.4 第 4 点补注：`<PREVIEW_INDEX_SCRIPT>` 实测不存在（与 `<FIX_LINKS_SCRIPT>` 同），preview 根 `index.html` 停留 2026-08-06 版本、393 个 HTML 未入索引，给出两条实际可行的入口页生成路径。
 - v2.1.2（2026-09-16）：Phase 0.6 新增第 7 条「同一文件混有本人与他人在制改动 → 部分提交法」——修正 v2.1.1 第 6 条的隐含风险（`--only` 取工作区内容，会把并发会话在制改动一起提交）；给出 `git show HEAD:` → 断言式替换 → `hash-object --stdin --path` → `cat-file` 回读 → `update-index --cacheinfo` → **无 pathspec commit** 六步法，附三探针验证、"`MM` 是正确状态"的状态解读、脚本仓真实位置（`<YOUR_SCRIPTS_DIR>\.git` 独立仓）与 Bash shim 退化下的 `subprocess cwd` 对策。
-- v2.1.3（2026-09-16）：三条实测补充 —— ① **MOC 分两类，别手改自动生成的**：KB 各域的 `00-自生长-MOC.md` 由 `grow_moc.py` 自动生成、frontmatter 明写「禁止手改」（带 `moc_children` / `moc_child_digest`），新笔记只要带 `summary` 就会在下次每日刷新时自动收录，**不要手动补链**；需要手动补链的是**手维护域 MOC**（如 `03-<YOUR_DOMAIN3>/README.md` 的栏目表）与母笔记正文里的 wikilink。② **第 6 条已复验可用**：当目标文件工作区本身干净时，`git add <精确文件>` + `git commit -o <同一组 pathspec>` 完全隔离（本轮 staged 基线 31 条 → add 后 34 → commit 后回 31，零带走他人暂存内容）；只有目标文件自身混有他人在制改动时才需上第 7 条的部分提交法。③ **工具链兜底**：PowerShell 下 `git` 的 stdout 可能整体丢失（命令 exit 0 但零输出，`Get-ChildItem` 同样症状），Bash shim 也会因 `dirname: command not found` / `cd: null directory` 报错；两者都不可信时，一律 Write 一个临时 `.py` 脚本用 `subprocess.run(["git", ...], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")` 执行并 print（Python 用受管版 `<USER_HOME>\.workbuddy\binaries\python\versions\3.13.12\python.exe`，Bash 调用加 `MSYS_NO_PATHCONV=1` 与带盘符的绝对路径），本轮前检 / 落位 / 差异检查 / 隔离提交四次操作全部走此路径并成功。
+- v2.1.3（2026-09-16）：三条实测补充 —— ① **MOC 分两类，别手改自动生成的**：KB 各域的 `<YOUR_MOC>.md` 由 `<GROW_MOC_SCRIPT>` 自动生成、frontmatter 明写「禁止手改」（带 `moc_children` / `moc_child_digest`），新笔记只要带 `summary` 就会在下次每日刷新时自动收录，**不要手动补链**；需要手动补链的是**手维护域 MOC**（如 `03-<YOUR_DOMAIN3>/README.md` 的栏目表）与母笔记正文里的 wikilink。② **第 6 条已复验可用**：当目标文件工作区本身干净时，`git add <精确文件>` + `git commit -o <同一组 pathspec>` 完全隔离（本轮 staged 基线 31 条 → add 后 34 → commit 后回 31，零带走他人暂存内容）；只有目标文件自身混有他人在制改动时才需上第 7 条的部分提交法。③ **工具链兜底**：PowerShell 下 `git` 的 stdout 可能整体丢失（命令 exit 0 但零输出，`Get-ChildItem` 同样症状），Bash shim 也会因 `dirname: command not found` / `cd: null directory` 报错；两者都不可信时，一律 Write 一个临时 `.py` 脚本用 `subprocess.run(["git", ...], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")` 执行并 print（Python 用受管版 `<WB_HOME>\binaries\python\versions\<版本>\python.exe`，Bash 调用加 `MSYS_NO_PATHCONV=1` 与带盘符的绝对路径），本轮前检 / 落位 / 差异检查 / 隔离提交四次操作全部走此路径并成功。
 - v2.1.4（2026-09-16）：Phase 0.6 新增第 8 条「状态归属判定与草稿/正本同步」——① 记录本轮实际踩到的坑：对 `git status -s` 输出行做 `.strip()` 再按字符位判断，会把 ` M <path>`（仅工作区修改）误判成已暂存，因为标志性的行首空格被吃掉；正解是保留原始字符判定 `l[0] not in " ?"`，打印时用 `repr(l)`。② 澄清纯增量修订（文件本身干净、只追加章节）走第 6 条即可，不必上第 7 条，本轮单文件追加实测 `+79/-11`、他人 staged 恒为 31 条。③ 新增「草稿与正本同步」规则：正本带 frontmatter、草稿不带，以正本修订后须去掉 frontmatter 写回草稿并断言内容一致，否则草稿静默落后。
 - v2.1.5（2026-09-16）：**修正本 skill 自身第 6 条命令示例的硬错误** —— 原示例写作 `git commit -o <paths> -m "msg"`，`-m` 落在 pathspec 之后，实测报 `error: pathspec '-m' did not match any file(s) known to git`，整条消息被当成路径解析，提交静默不发生。正解为 `git commit -o -m "msg" -- <paths>`，所有选项必须在 `--` 之前。坑的隐蔽处在失败后的次生后果：文件仍留在暂存区（staged 由 31 变 33），若重跑脚本时仍以"提交前 staged 数"为基线，就会把基线误记为 33，使第 103 行第 ② 项隔离校验彻底失效。重跑前必须先确认真实暂存状态，并以**上一次成功提交对应的干净基线**为准。教训：示例命令必须逐次实跑验证，不能凭语法肌肉记忆写入。

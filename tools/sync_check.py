@@ -20,9 +20,9 @@
 
 检查项:
   1. 正本目录树内（含子目录）不得出现任何链接（纪律1：防循环扫描；rglob 递归判定）
-  2. 两端链接：目标须落在正本目录内（严格父子路径判定，防旁支前缀绕过），
-     且链接名与正本目录名一致；透过链接存在不可读文件时判 SUSPENDED，
-     链接侧无可校验文件时判 FAIL（不冒充一致结论）
+  2. 两端链接：目标须恰为顶层正本（realpath 后须是正本目录的直接子项——既防旁支
+     前缀绕过，也防正本树内嵌套同名目录冒充顶层正本），且链接名与正本目录名一致；
+     透过链接存在不可读文件时判 SUSPENDED，链接侧无可校验文件时判 FAIL（不冒充一致结论）
   3. 两端实体目录：与正本同名者判 FAIL（遮蔽），附内容相同/分叉判定
   4. 参数前提：--mount-a / --mount-b / --source 两两不同（resolve 后比较），
      配错即退出码 2（防止同路径双端拿到假绿）
@@ -217,6 +217,13 @@ def main(argv=None) -> int:
                 mname = tgt.name
                 if mname not in masters:
                     problems.append(f"[{end}] {x.name}: 指向的正本项不存在 ({mname})")
+                    continue
+                # 顶层身份校验（第十轮 N10-1）：上面两步只保证"正本树内存在同名目录"，
+                # 不排除 tgt 为 <正本>/<中间目录>/<同名目录> 这类嵌套同名项——名字撞上
+                # 顶层正本即拿假绿，挂载分布随之虚增。要求 tgt 恰为顶层正本（直接子项）。
+                if tgt.parent != hub_real:
+                    problems.append(
+                        f"[{end}] {x.name}: 链接指向嵌套同名目录而非顶层正本 ({tgt})")
                     continue
                 if x.name != mname:
                     problems.append(f"[{end}] {x.name}: 链接名与正本目录名不一致 ({mname})")

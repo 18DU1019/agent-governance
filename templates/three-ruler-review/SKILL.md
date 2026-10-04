@@ -51,9 +51,9 @@ agent_created: true
 - 优先引自家已有工具（如 <PRIVATE_SYSTEM> 已有 PBO/t-p 端点），零成本增量
 
 ### 步骤 5 · 交付（固定动作）
-1. md → HTML：`"<PRIVATE_SYSTEM>/venv/Scripts/python.exe" "<YOUR_SCRIPTS_DIR>/md2html.py" <输入.md> -o "<YOUR_WORKBENCH>/preview/<同名>.html"`（注意 Windows 路径格式，别用 /c/ 前缀）
-2. 入库：cp 到知识库对应目录（量化方案 → `<YOUR_VAULT_PATH>\07-<YOUR_DOMAIN2>\量化交易\`），命名带日期
-3. 追加工作日志：TRAE 会话记忆（系统自动沉淀），跨会话要点经 `<YOUR_SCRIPTS_DIR>\distill_memory.py` 蒸馏入库（append-only 语义）
+1. md → HTML：`"<PRIVATE_SYSTEM>/venv/Scripts/python.exe" "<YOUR_SCRIPTS_DIR>/<MD2HTML_SCRIPT>" <输入.md> -o "<YOUR_WORKBENCH>/preview/<同名>.html"`（注意 Windows 路径格式，别用 /c/ 前缀）
+2. 入库：cp 到知识库对应目录（量化方案 → `<YOUR_VAULT_PATH>\07-<YOUR_DOMAIN2>\<YOUR_TOPIC_DIR>\`），命名带日期
+3. 追加工作日志：TRAE 会话记忆（系统自动沉淀），跨会话要点经 `<YOUR_SCRIPTS_DIR>\<DISTILL_SCRIPT>` 蒸馏入库（append-only 语义）
 4. present_files 交付 HTML（md 禁止直接 present；内置预览可能空白，提示用户双击 HTML 或用系统浏览器）
 
 ## 关键教训（五轮迭代实战沉淀，违反必返工）

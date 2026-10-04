@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""sync_check 回归自测（二十一用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
+"""sync_check 回归自测（二十二用例，纯 stdlib，与校验器同目录自定位，无环境依赖）。
 
 覆盖 v0.1.5 / v0.1.5.1 / v0.1.5.2 修复项与既有判定的回归防护：
   case1   链接双挂正例 PASS（Windows 用 junction，其余平台用 symlink）
@@ -23,8 +23,9 @@
   case16  正本内文件级链接必 FAIL（N8-2 回归：纪律1"任何链接"含文件级）
   case17  空字符串路径参数必退出码 2（N8-3 回归：env 空串不静默变 cwd）
   case18  不可读子目录必 SUSPENDED（N9-1 回归：目录级权限故障不静默跳过冒充判定）
+  case19  链接指向正本树内嵌套同名目录必 FAIL（N10-1 回归：顶层正本身份校验）
 
-用法: python tools/sync_check_selftest.py   （退出码 0=二十一用例全过）
+用法: python tools/sync_check_selftest.py   （退出码 0=二十二用例全过）
 CI 已接线（.github/workflows/ci.yml）；本地随时可跑，只写系统临时目录。
 """
 import importlib.util
@@ -386,6 +387,17 @@ with Fixture() as f:
     check("case18 不可读子目录必 SUSPENDED 不冒充判定（N9-1 回归）",
           code == 1 and "SUSPENDED" in buf.getvalue() and "内容分叉" not in buf.getvalue(),
           buf.getvalue())
+
+# case19 第十轮 N10-1 回归：链接指向正本树内**嵌套同名目录**（<hub>/<中间目录>/<同名>）
+# 必 FAIL。旧实现只验 tgt.name in masters，名字撞上顶层正本即拿假绿（挂载分布随之虚增）。
+with Fixture() as f:
+    (f.root / "hub" / "wrap").mkdir()
+    shutil.copytree(f.root / "hub" / "skillA", f.root / "hub" / "wrap" / "skillA")
+    make_link(f.root / "ma" / "skillA", f.root / "hub" / "wrap" / "skillA")
+    make_link(f.root / "mb" / "skillA", f.root / "hub" / "skillA")
+    r = f.run_check()
+    check("case19 链接指向嵌套同名目录必 FAIL（N10-1 顶层身份回归）",
+          r.returncode == 1 and "嵌套同名目录" in r.stdout, r.stdout)
 
 fails = 0
 for name, ok, detail in results:
