@@ -52,11 +52,15 @@ class Fixture:
         return self
 
     def __exit__(self, *exc):
-        # junction/symlink 先断再删，防 rmtree 穿透删正本（纪律 2 的自食其例）
+        # junction/symlink 先断再删，防 rmtree 穿透删正本（纪律 2 的自食其例）。
+        # 平台分叉：Windows junction/目录 symlink 须 rmdir（unlink 报权限/目录错），
+        # Unix symlink 指向目录时须 unlink（os.rmdir 对 symlink 抛 NotADirectoryError）。
         for base in (self.root / "ma", self.root / "mb"):
             for x in base.iterdir():
-                if x.is_symlink() or (IS_WIN and x.is_junction()):
+                if IS_WIN and (x.is_junction() or x.is_symlink()):
                     x.rmdir()
+                elif x.is_symlink():
+                    x.unlink()
         shutil.rmtree(self.root, ignore_errors=True)
         return False
 
