@@ -43,6 +43,13 @@ agent-governance/
 
 3. **模板**：`templates/` 内两个 SKILL.md 为通用 Agent 技能格式（frontmatter + 正文路由器），替换占位符后接入你自己的 agent 技能目录。
 
+## 分发与安装
+
+- **Claude Code**：`/plugin marketplace add 18DU1019/agent-governance`，然后 `/plugin install agent-governance@agent-governance`。安装后获得一个根级路由 skill，指向仓内条款与工具（`templates/` 保持正本，插件不复制副本）。
+- **TRAE Work（技能中心）**：从 [Releases](https://github.com/18DU1019/agent-governance/releases) 下载 `*.skill` 包（或 zip），在 技能 → 上传技能 安装。两个模板内含占位符，替换后才有实际功能。
+- **源码**：Release 资产含整仓 zip，或直接 clone。
+- **TraeWork 插件市场**：经查证（2026-10-05 官方文档口径）暂无第三方开发者上架通道，开放后再评估。
+
 ## 占位符对照表
 
 模板与文档中的 `<...>` 变量含义如下，替换为自家路径即可：
@@ -81,4 +88,4 @@ agent-governance/
 
 ## 状态
 
-v0.1.5.2 —— 从生产环境提炼，占位符化脱敏（经十轮独立审查，含负例实战探针与公开面取证；另经一轮根因修复：新增独立脱敏验收仪器 `tools/desensitize_scan.py` 与条款 10「清洗与验证不得共用同一把尺」，已入 CI）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏，并修复第八/九/十轮探针新发现的五项：挂载端孤立实体目录假绿（N8-1，退役残留形态）、正本内文件级链接漏检（N8-2，纪律1 文件级承载）、空字符串路径参数静默变 cwd（N8-3，退出码 2）、不可读子目录静默跳过冒充判定（N9-1，目录级权限故障转 SUSPENDED）、链接指向正本树内嵌套同名目录冒充顶层正本拿假绿（N10-1，realpath 后增顶层身份校验）。本仓自身适用缺口（含生命力判据缺口）的如实登记见 [governance/lifecycle-clauses.md](governance/lifecycle-clauses.md) 附"条款自证"。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。
+v0.1.5.3 —— 从生产环境提炼，占位符化脱敏（经十轮独立审查，含负例实战探针与公开面取证；另经一轮根因修复：新增独立脱敏验收仪器 `tools/desensitize_scan.py` 与条款 10「清洗与验证不得共用同一把尺」，已入 CI）；v0.1.5 收编外部对标借件（SUSPENDED 语义/负面一致性向量/执行前复扫），v0.1.5.1 修复对抗性审查发现的链接分支静默漏判（V1）、正本内嵌套链接漏检（V2）、参数前提缺校验（V4）三项校验器缺陷，v0.1.5.2 修复 CI lint 子串假绿、补负例清单回归用例（case11-14）、模板脱敏补漏，并修复第八/九/十轮探针新发现的五项：挂载端孤立实体目录假绿（N8-1，退役残留形态）、正本内文件级链接漏检（N8-2，纪律1 文件级承载）、空字符串路径参数静默变 cwd（N8-3，退出码 2）、不可读子目录静默跳过冒充判定（N9-1，目录级权限故障转 SUSPENDED）、链接指向正本树内嵌套同名目录冒充顶层正本拿假绿（N10-1，realpath 后增顶层身份校验）。本仓自身适用缺口（含生命力判据缺口）的如实登记见 [governance/lifecycle-clauses.md](governance/lifecycle-clauses.md) 附"条款自证"。issue 与 PR 欢迎，但请先读 governance/ 三文再提改动方案。

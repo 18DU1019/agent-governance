@@ -52,6 +52,9 @@ ALLOW_DOT_DIRS = {
     # 用户名已随绝对路径规则洗除）；CHANGELOG 历史条目保留其字面。模板正文
     # 仍按占位符契约使用 <WB_HOME>（该处属"通用化"而非"保密"，两事分立）。
     "workbuddy",
+    # claude-plugin / skill：Claude Code 插件清单公开约定目录与 TRAE 技能包
+    # 公开扩展名（v0.1.6 发布轮引入），公开约定名非 PII，同上两事分立。
+    "claude-plugin", "skill",
 }
 ALLOW_SCRIPT_BASENAMES = {
     "sync_check.py", "sync_check_selftest.py", "desensitize_scan.py",

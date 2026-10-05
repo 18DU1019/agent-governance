@@ -1,0 +1,18 @@
+{
+  "name": "agent-governance",
+  "displayName": "Agent Skill Governance Kit",
+  "version": "0.1.6",
+  "description": "Skill-asset lifecycle governance kit: sunset clocks, registration safeguards, bookkeeping clauses + cross-mount consistency checker + ingest/review templates",
+  "author": {
+    "name": "18DU1019"
+  },
+  "homepage": "https://github.com/18DU1019/agent-governance",
+  "repository": "https://github.com/18DU1019/agent-governance",
+  "license": "MIT AND CC-BY-4.0",
+  "keywords": [
+    "skills",
+    "governance",
+    "lifecycle",
+    "sync-check"
+  ]
+}
